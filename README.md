@@ -15,9 +15,13 @@
 │       └── database/               # 원본 데이터 & 전처리
 │           ├── college/            # 학과 관련 CSV/JSON
 │           ├── interview/          # 면접 QA CSV
-│           ├── data_preprocess/    # JSON→CSV 변환 스크립트
-│           └── docker/           # docker-compose, init.sql 등 인프라
+│           └── data_preprocess/    # JSON→CSV 변환 스크립트
+├── docker/                         # pgvector docker-compose + init.sql
+│   ├── docker-compose.yml
+│   ├── init.sql
+│   └── data/                       # Postgres 데이터 볼륨
 ├── imagelanggraph.ipynb            # LangGraph 구조 시각화 노트북
+├── rag_workflow.py                 # create_self_rag_workflow re-export
 ├── requirements.txt                # Python 의존성
 └── README.md
 ```
