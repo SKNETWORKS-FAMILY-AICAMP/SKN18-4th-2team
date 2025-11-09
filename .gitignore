@@ -2,4 +2,4 @@
 *.pyc
 __pycache__/
 .env
-backend/pgvector/data/
+backend/service/database/vector_store/data/

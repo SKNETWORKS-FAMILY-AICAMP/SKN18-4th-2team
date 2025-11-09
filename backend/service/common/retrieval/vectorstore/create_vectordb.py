@@ -10,7 +10,7 @@ from psycopg2.extras import Json
 from pgvector.psycopg2 import register_vector
 from tqdm import tqdm
 
-from ...llm import set_embedding_model
+from ...model import set_embedding_model
 
 BACKEND_DIR = Path(__file__).resolve().parents[3]
 load_dotenv(BACKEND_DIR.parent / ".env")
