@@ -16,7 +16,7 @@
 │           ├── college/            # 학과 관련 CSV/JSON
 │           ├── interview/          # 면접 QA CSV
 │           ├── data_preprocess/    # JSON→CSV 변환 스크립트
-│           └── vector_store/           # docker-compose, init.sql 등 인프라
+│           └── docker/           # docker-compose, init.sql 등 인프라
 ├── imagelanggraph.ipynb            # LangGraph 구조 시각화 노트북
 ├── requirements.txt                # Python 의존성
 └── README.md
