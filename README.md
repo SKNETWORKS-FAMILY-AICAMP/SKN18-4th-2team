@@ -9,19 +9,69 @@
 │   │   └── manage.py
 │   └── service/                    # 모델/그래프/데이터 파이프라인
 │       ├── common/                 # 공통 로직
-│       │   ├── model/              # OpenAI 모델 팩토리 및 유틸
-│       │   ├── retrieval/          # pgvector 연결, 검색 쿼리, 평가
-│       │   └── workflow/           # LangGraph 상태/노드/그래프 실행
+│       │   ├── embedding/          # 임베딩 생성 및 검색
+│       │   │   ├── embed_data.py       # 데이터 임베딩 생성
+│       │   │   ├── search_similar.py   # 유사도 검색
+│       │   │   └── embedding.md        # 임베딩 관련 문서
+│       │   ├── model/              # LLM 모델 팩토리 및 유틸
+│       │   │   ├── models.py           # 모델 인스턴스 생성
+│       │   │   └── utils.py            # 모델 관련 유틸리티
+│       │   ├── retrieval/          # Vector DB 연결 및 관리
+│       │   │   └── vectorstore/
+│       │   │       ├── create_vectordb.py  # VectorDB 생성 파이프라인
+│       │   │       └── vectordb/
+│       │   │           ├── connect_db.py   # PostgreSQL 연결
+│       │   │           ├── data_loader.py  # CSV 데이터 로더
+│       │   │           ├── pgvector.py     # pgvector 테이블 관리
+│       │   │           ├── Singleton.py    # DB 커넥션 풀 싱글톤
+│       │   │           └── splitter.py     # 텍스트 청킹
+│       │   └── workflow/           # LangGraph 워크플로우
+│       │       ├── agents/             # 외부 API/LLM 래퍼
+│       │       ├── graph/              # 그래프 빌더
+│       │       │   └── graph_builder.py
+│       │       ├── nodes/              # 그래프 노드
+│       │       │   └── classify.py
+│       │       └── states/             # 상태 정의
+│       │           ├── graph_state.py
+│       │           ├── interview_state.py
+│       │           └── college_state.py
 │       └── database/               # 원본 데이터 & 전처리
-│           ├── college/            # 학과 관련 CSV/JSON
-│           ├── interview/          # 면접 QA CSV
-│           └── data_preprocess/    # JSON→CSV 변환 스크립트
-├── docker/                         # pgvector docker-compose + init.sql
-│   ├── docker-compose.yml
-│   ├── init.sql
-│   └── data/                       # Postgres 데이터 볼륨
+│           ├── college/            # 학과 데이터
+│           │   ├── majors_with_chunks.csv      # 청킹된 학과 정보
+│           │   └── major_universities.csv      # 학과-대학 매핑
+│           ├── interview/          # 면접 데이터셋
+│           │   ├── interview_final_dataset.csv # 최종 면접 데이터
+│           │   ├── interview_sft_chatml.jsonl  # SFT용 데이터
+│           │   ├── make_ft_jsonl.py            # JSONL 변환 스크립트
+│           │   ├── valid_merged_all_preprocessed.csv
+│           │   └── gemma_lora.ipynb            # LoRA 파인튜닝 노트북
+│           └── data_preprocess/    # 전처리 스크립트
+│               ├── college/            # 학과 데이터 전처리
+│               │   ├── export_to_csv.py
+│               │   ├── major_details_공학.json
+│               │   ├── major_details_의약.json
+│               │   └── major_details_자연.json
+│               └── interview/          # 면접 데이터 전처리
+│                   ├── data_preprocessiong.md      # 전처리 파이프라인 문서
+│                   ├── unzip_and_merge.py          # ZIP 압축 해제 및 병합
+│                   ├── merge_json.py               # JSON 병합
+│                   ├── json_to_csv_detailed.py    # JSON→CSV 변환
+│                   ├── check_columns.py            # 데이터 품질 검증
+│                   ├── drop_columns.py             # 컬럼 제거
+│                   ├── merge_csv.py                # CSV 병합
+│                   ├── filter_experienced.py       # EXPERIENCED 필터링
+│                   ├── add_sample_id.py            # Sample ID 추가
+│                   ├── run_intent_tagger_v3.py     # Intent 태깅
+│                   ├── prepare_interview_dataset.py
+│                   └── valid_merged_all.csv
+├── docker/                         # PostgreSQL + pgvector 환경
+│   ├── docker-compose.yml          # Docker Compose 설정
+│   ├── vector_init.sql             # pgvector 초기화 스크립트
+│   ├── meta_queries.sql            # 메타 쿼리
+│   └── sql_detail.md               # SQL 상세 문서
 ├── imagelanggraph.ipynb            # LangGraph 구조 시각화 노트북
 ├── requirements.txt                # Python 의존성
+├── .env.sample                     # 환경변수 샘플
 └── README.md
 ```
 

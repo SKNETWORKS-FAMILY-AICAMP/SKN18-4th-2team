@@ -1,20 +1,26 @@
-version: "3.8"
+version: '3.8'
 
 services:
-  pgvector:
+  postgres:
     image: pgvector/pgvector:pg16
-    container_name: pgvector_db
-    restart: always
-    env_file:
-      - ../.env
-
+    container_name: interview_vectordb
+    environment:
+      POSTGRES_USER: interview_user
+      POSTGRES_PASSWORD: interview_pass
+      POSTGRES_DB: interview_db
     ports:
       - "5432:5432"
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
+      - ./vector_init.sql:/docker-entrypoint-initdb.d/01_vector_init.sql
+      - ./meta_queries.sql:/docker-entrypoint-initdb.d/02_meta_queries.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+      test: ["CMD-SHELL", "pg_isready -U interview_user -d interview_db"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
