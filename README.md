@@ -21,7 +21,6 @@
 │   ├── init.sql
 │   └── data/                       # Postgres 데이터 볼륨
 ├── imagelanggraph.ipynb            # LangGraph 구조 시각화 노트북
-├── rag_workflow.py                 # create_self_rag_workflow re-export
 ├── requirements.txt                # Python 의존성
 └── README.md
 ```
