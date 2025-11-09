@@ -49,3 +49,38 @@ python -m backend.service.common.retrieval.vectorstore.create_vectordb
 ```
 
 `docker compose --env-file .env -f docker/docker-compose.yml ps` , `docker ps --filter name=pgvector_db` 는 도커 Healthy 상태 체크를 위한 명령어
+
+## Workflow 예시
+
+
+```
+backend/service/common/workflow/
+├── states/
+│   └── graph_state.py          # 시나리오·질문·retrieval 결과 등을 담는 공용 상태
+├── agents/                     # 외부 LLM/DB/API 래퍼
+│   ├── classify_agent.py       # 시나리오 라우터
+│   ├── question_agent.py
+│   ├── interview_rag_agent.py
+│   ├── interview_ft_agent.py
+│   ├── interview_eval_agent.py
+│   ├── college_rdb_agent.py
+│   ├── college_vectordb_agent.py
+│   ├── tavily_agent.py
+│   └── college_eval_agent.py
+├── nodes/                      # LangGraph 노드 (상태 업데이트 + agent 호출)
+│   ├── classify_node.py
+│   ├── question_node.py
+│   ├── interview_retrieve_node.py
+│   ├── interview_eval_node.py
+│   ├── interview_generate_node.py
+│   ├── college_retrieve_node.py
+│   ├── college_eval_node.py
+│   └── college_generate_node.py
+└── graph/
+    └── builder.py              # StateGraph 정의, 조건부 edge, fallback 경로
+```
+
+- **states**: `GraphState` 데이터 구조로 시나리오, 질문, retriever 결과, retry 횟수 등을 관리.
+- **agents**: 실제 LLM이나 DB, Tavily API 호출을 캡슐화하는 모듈.
+- **nodes**: LangGraph에서 연결되는 함수. 각 노드가 적절한 agent를 호출하고 state를 갱신/분기.
+- **graph/builder.py**: `StateGraph(GraphState)` 를 구성하고 `add_conditional_edges` 로 면접/대학 플로우 및 fallback 루프를 정의.
