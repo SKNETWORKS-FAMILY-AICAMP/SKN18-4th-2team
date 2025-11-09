@@ -109,7 +109,6 @@ def write_jsonl(path: Path, rows: Iterable[dict]) -> None:
             fh.write(json.dumps(row, ensure_ascii=False))
             fh.write("\n")
 
-
 def main() -> None:
     """메인 실행 함수"""
     args = parse_args()
@@ -117,7 +116,7 @@ def main() -> None:
     output_file = Path(args.output_file)
     
     # 임베딩할 텍스트를 구성할 핵심 컬럼 3가지
-    columns = ("summary", "interest", "property")
+    columns = ("summary", "interest", "property") # <-- 이 변수를 재활용합니다
 
     # 1. 데이터 로드: 'major_details_'로 시작하는 모든 CSV를 찾음
     csv_files = sorted(data_dir.glob("major_details_*.csv"))
@@ -149,32 +148,45 @@ def main() -> None:
     texts = build_texts(df_combined, columns=columns)
 
     # 5. 임베딩 실행
-    print(f"{len(texts)}개 텍스트 임베딩 시작 (배치 크기: {args.batch_size})...") 
+    print(f"{len(texts)}개 텍스트 임베딩 시작 (배치 크기: {args.batch_size})...")
     start_time = time.time()
     embeddings = model.encode(
         texts,
-        batch_size=args.batch_size, # <<< 2번 수정됨
+        batch_size=args.batch_size,
         show_progress_bar=True,
         convert_to_numpy=True,
         normalize_embeddings=args.normalize,
     )
     print(f"임베딩 완료. ({time.time() - start_time:.2f}초)")
-
+    
     # 6. JSONL 파일로 저장할 레코드(dict) 생성
     print("JSONL 레코드 생성 중...")
     records = []
+    
+    # 임베딩에 사용된 컬럼 목록 (삭제 대상)
+    columns_to_remove = set(columns) # {"summary", "interest", "property"}
+
+    # df_combined.itertuples()는 각 행(row)을 'named tuple'로 반환합니다.
     for row, text, embedding in zip(df_combined.itertuples(index=False), texts, embeddings, strict=False):
-        records.append(
-            {
-                # 메타데이터 (필터링이나 참조용)
-                "majorSeq": getattr(row, "majorSeq", None),
-                "major": getattr(row, "major", None),
-                # RAG 검색 시 LLM에게 전달될 '문맥'
-                "text": text,
-                # RAG 검색에 사용될 '벡터'
-                "embedding": embedding.tolist(),
-            }
-        )
+        
+        # 1. 'row'를 딕셔너리로 변환 (모든 원본 컬럼이 포함됨)
+        record = row._asdict()
+        
+        # 2. RAG 필수 필드 추가
+        record['text'] = text                 # 임베딩된 '본문'
+        record['embedding'] = embedding.tolist() # '벡터'
+        
+        # 3. 메타데이터 정리: 임베딩에 사용된 원본 컬럼 3개 삭제
+        #    (이제 'text' 필드에 합쳐졌으므로 중복/불필요)
+        for col in columns_to_remove:
+            if col in record:
+                del record[col]
+        
+        # (만약 'text_for_embedding' 컬럼이 원본 df에 남아있었다면 삭제)
+        if 'text_for_embedding' in record:
+            del record['text_for_embedding']
+        
+        records.append(record)
 
     # 7. JSONL 파일로 저장
     write_jsonl(output_file, records)
