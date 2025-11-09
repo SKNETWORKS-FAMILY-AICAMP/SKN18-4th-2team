@@ -12,9 +12,11 @@ from tqdm import tqdm
 
 from ...model import set_embedding_model
 
-BACKEND_DIR = Path(__file__).resolve().parents[3]
-load_dotenv(BACKEND_DIR.parent / ".env")
-CSV_PATH = BACKEND_DIR / "database" / "college" / "majors_with_chunks.csv"
+SERVICE_DIR = Path(__file__).resolve().parents[3]
+PROJECT_ROOT = SERVICE_DIR.parent.parent
+load_dotenv(PROJECT_ROOT / ".env")
+CSV_PATH = SERVICE_DIR / "database" / "college" / "majors_with_chunks.csv"
+UNIV_CSV_PATH = SERVICE_DIR / "database" / "college" / "major_universities.csv"
 BATCH_SIZE = 32
 
 
@@ -84,6 +86,20 @@ DO UPDATE SET
     metadata = EXCLUDED.metadata;
 """
 
+UNIV_UPSERT_SQL = """
+INSERT INTO major_universities (
+    major_seq,
+    school_name,
+    major_name
+)
+VALUES (
+    %(major_seq)s,
+    %(school_name)s,
+    %(major_name)s
+)
+ON CONFLICT (major_seq, school_name, major_name) DO NOTHING;
+"""
+
 
 def upsert_embeddings(records: Iterable[Dict[str, str]], batch_size: int = BATCH_SIZE) -> None:
     """
@@ -134,6 +150,40 @@ def upsert_embeddings(records: Iterable[Dict[str, str]], batch_size: int = BATCH
     print(f"Upserted {len(rows)} chunk rows into pgvector.")
 
 
+def load_universities(csv_path: Path = UNIV_CSV_PATH) -> List[Dict[str, str]]:
+    if not csv_path.exists():
+        raise FileNotFoundError(f"{csv_path} not found. export_to_csv.py를 먼저 실행하세요.")
+    with csv_path.open("r", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        return list(reader)
+
+
+def upsert_universities(records: Iterable[Dict[str, str]]) -> None:
+    rows = list(records)
+    if not rows:
+        print("No university records to ingest.")
+        return
+
+    with _get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.executemany(
+                UNIV_UPSERT_SQL,
+                [
+                    {
+                        "major_seq": row.get("majorSeq"),
+                        "school_name": row.get("schoolName"),
+                        "major_name": row.get("majorName"),
+                    }
+                    for row in rows
+                ],
+            )
+        conn.commit()
+
+    print(f"Upserted {len(rows)} university rows.")
+
+
 if __name__ == "__main__":
-    data = load_chunks_from_csv()
-    upsert_embeddings(data)
+    chunk_rows = load_chunks_from_csv()
+    upsert_embeddings(chunk_rows)
+    university_rows = load_universities()
+    upsert_universities(university_rows)

@@ -20,3 +20,13 @@ CREATE TABLE IF NOT EXISTS major_vector_chunks (
 -- Prevent duplicate chunks per major
 CREATE UNIQUE INDEX IF NOT EXISTS uq_major_chunk
     ON major_vector_chunks (major_seq, chunk_field);
+
+CREATE TABLE IF NOT EXISTS major_universities (
+    id BIGSERIAL PRIMARY KEY,
+    major_seq TEXT NOT NULL,
+    school_name TEXT NOT NULL,
+    major_name TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_major_universities
+    ON major_universities (major_seq, school_name, major_name);
