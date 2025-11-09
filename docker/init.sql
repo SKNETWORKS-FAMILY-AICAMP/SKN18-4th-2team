@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS major_vector_chunks (
     job TEXT,
     qualifications TEXT,
     chunk_field TEXT NOT NULL,
+    chunk_index INT NOT NULL DEFAULT 0,
     chunk_text TEXT NOT NULL,
     embedding VECTOR(3072) NOT NULL,
     metadata JSONB DEFAULT '{}'::jsonb,
@@ -19,7 +20,7 @@ CREATE TABLE IF NOT EXISTS major_vector_chunks (
 
 -- Prevent duplicate chunks per major
 CREATE UNIQUE INDEX IF NOT EXISTS uq_major_chunk
-    ON major_vector_chunks (major_seq, chunk_field);
+    ON major_vector_chunks (major_seq, chunk_field, chunk_index);
 
 CREATE TABLE IF NOT EXISTS major_universities (
     id BIGSERIAL PRIMARY KEY,
