@@ -71,13 +71,12 @@ def search_similar_majors(query: str):
             major_name = row[0]
             chunk_index = row[1]
             text_value = row[2] or ""
-            text_snippet = text_value[:80] + "..."
             distance = row[3]
             similarity = 1 - distance
 
             print(f"\n[순위 {i + 1}] 학과: {major_name} (chunk #{chunk_index})")
             print(f"  (Cosine 거리: {distance:.4f} / 유사도: {similarity:.4f})")
-            print(f"  (본문 미리보기: {text_snippet})")
+            print(f"  (본문: {text_value})")
 
     except Exception as e:
         print(f"오류 발생: {e}")
