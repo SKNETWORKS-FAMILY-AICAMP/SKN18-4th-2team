@@ -1,0 +1,5 @@
+# 환경 변수 / 보안 키 파일만 제외
+.env
+.env.*
+secrets.json
+keys.json
