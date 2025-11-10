@@ -1,1 +1,8 @@
+pandas
 sentence-transformers
+transformers
+torch
+psycopg2-binary
+python-dotenv
+tqdm  # (진행률 표시를 위해 추가)
+pgvector
