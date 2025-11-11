@@ -3,3 +3,4 @@
 .env.*
 secrets.json
 keys.json
+docker/data
