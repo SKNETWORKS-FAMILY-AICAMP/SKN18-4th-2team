@@ -3,6 +3,7 @@ from functools import lru_cache
 from typing import Tuple, Any
 
 from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.chat_models import ChatOllama
 from langchain_openai import OpenAIEmbeddings
 from langchain_openai import ChatOpenAI
 
@@ -44,4 +45,10 @@ def load_openai_model(*, params_key: Tuple[Tuple[str, Any], ...]) -> ChatOpenAI:
     """답변생성 혹은 평가 모델을 로드하는 함수"""
     params = dict(params_key)
     return ChatOpenAI(**params)
-    
+
+@lru_cache(maxsize=1) 
+def load_ollama_model() -> ChatOllama:
+    """ChatOllama LLM을 초기화"""
+    model = os.getenv("OLLAMA_MODEL")
+    temperature = float(os.getenv("GEN_TEMPERATURE", "0.2"))
+    return ChatOllama(model=model, temperature=temperature)
