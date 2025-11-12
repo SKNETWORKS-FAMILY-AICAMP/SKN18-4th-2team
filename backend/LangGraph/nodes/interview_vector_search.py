@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 from models import get_embedding_model
 from initstate import GraphState
-from CustomPGvector import CustomPGVector
+from InterviewPGVector import InterviewPGVector
 from utils import make_conn_str
 
 def _build_metadata_filter(keywords: list) -> dict:
@@ -196,7 +196,11 @@ def interview_vector_search_node(state: GraphState) -> GraphState:
     - answer_feedback: VectorDB 검색만 사용
     """
     embed = get_embedding_model()
-    vectorstore = CustomPGVector(conn_str=make_conn_str(), embedding_fn=embed)
+    # 면접 데이터용 InterviewPGVector 사용
+    vectorstore = InterviewPGVector(
+        conn_str=make_conn_str(), 
+        embedding_fn=embed
+    )
     
     chunk_lst = list()
     question = state.get("question", "")

@@ -93,10 +93,18 @@ def test_interview_flow():
             if result.get('final_chunks'):
                 print("\n최종 청크 평가:")
                 for i, chunk in enumerate(result['final_chunks'][:3], 1):
+                    metadata = chunk.get('metadata', {})
                     print(f"\n[청크 {i}]")
                     print(f"  평가 점수: {chunk.get('eval_score', 'N/A')}")
                     print(f"  평가 이유: {chunk.get('eval_reason', 'N/A')[:100]}...")
-                    print(f"  내용 미리보기: {chunk.get('content', '')[:150]}...")
+                    print(f"\n  메타데이터:")
+                    print(f"    - doc_id: {metadata.get('doc_id', 'N/A')}")
+                    print(f"    - occupation: {metadata.get('occupation', 'N/A')}")
+                    print(f"    - question_intent: {metadata.get('question_intent', 'N/A')}")
+                    print(f"    - gender: {metadata.get('gender', 'N/A')}")
+                    print(f"    - age_range: {metadata.get('age_range', 'N/A')}")
+                    print(f"    - experience: {metadata.get('experience', 'N/A')}")
+                    print(f"\n  내용 미리보기: {chunk.get('content', '')[:200]}...")
             
             print("\n" + "-" * 80)
             print("최종 답변:")
@@ -160,7 +168,11 @@ def test_interview_flow_step_by_step():
             elif node_name == "interview_eval":
                 print(f"평가된 청크 수: {len(node_result.get('final_chunks', []))}")
                 for i, chunk in enumerate(node_result.get('final_chunks', [])[:3], 1):
-                    print(f"\n청크 {i}: 점수={chunk.get('eval_score', 'N/A')}")
+                    metadata = chunk.get('metadata', {})
+                    print(f"\n청크 {i}:")
+                    print(f"  점수: {chunk.get('eval_score', 'N/A')}")
+                    print(f"  occupation: {metadata.get('occupation', 'N/A')}")
+                    print(f"  question_intent: {metadata.get('question_intent', 'N/A')}")
             
             elif node_name == "interview_generation":
                 print("최종 답변 생성 완료")
