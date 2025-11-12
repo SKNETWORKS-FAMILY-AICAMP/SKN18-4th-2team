@@ -1,17 +1,16 @@
+-- Enable pgvector extension
 CREATE EXTENSION IF NOT EXISTS vector;
 
-CREATE TABLE IF NOT EXISTS majors (
-    -- 메타데이터 (Metadata) --
-    "majorSeq" INT PRIMARY KEY,
-    major VARCHAR(255),
-    salary FLOAT,
-    employment VARCHAR(255),
+CREATE TABLE IF NOT EXISTS major_vector_chunks (
+    id BIGSERIAL PRIMARY KEY,
+    major_seq TEXT NOT NULL,
+    major TEXT NOT NULL,
+    salary TEXT,
+    employment TEXT,
     job TEXT,
     qualifications TEXT,
     universities TEXT,
-    
-
-    "text" TEXT,
-
-    embedding vector(768) 
+    embedding VECTOR(3072) NOT NULL,
+    metadata JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
