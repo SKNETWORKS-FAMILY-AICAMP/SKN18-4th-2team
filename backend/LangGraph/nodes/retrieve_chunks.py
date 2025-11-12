@@ -1,5 +1,5 @@
 from models import get_embedding_model
-from initstate import GraphState
+from ..initstate import GraphState
 from CustomPGvector import CustomPGVector
 from utils import make_conn_str
 

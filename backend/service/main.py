@@ -4,12 +4,12 @@ from dotenv import load_dotenv
 
 # 상위 폴더를 import 경로에 추가
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from backend.LangGraph.graph import create_collage_graph_flow
+from backend.LangGraph.graph import create_graph_flow
 
 
 def main():
     load_dotenv()
-    app = create_collage_graph_flow()
+    app = create_graph_flow()
     print("🤖 LangGraph 챗봇 활성화 완료!")
     print("종료하려면 'exit', 'quit', '종료' 입력.\n")
 

@@ -1,7 +1,4 @@
-from initstate import GraphState
-
-def evaluate_question_answer(state: GraphState) -> GraphState:
-    passfrom initstate import GraphState
+from ..initstate import GraphState
 from models import load_openai_model
 from langchain_core.messages import SystemMessage, HumanMessage
 import json

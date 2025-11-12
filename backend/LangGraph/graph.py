@@ -29,8 +29,8 @@ def create_graph_flow():
 
     graph.add_edge("classify", "retrieve")              # 질문 분류 후 → chunk 검색
     graph.add_edge("retrieve", "evaluate_chunks")       # 검색된 chunk → 관련도 평가
-    graph.add_edge("evaluate_chunks", "generate_question")  # 상위 청크 기반 질문 리메이크
-    graph.add_edge("generate_question", "generate_answer")  # 리메이크된 질문으로 답변 생성
+    graph.add_edge("evaluate_chunks", "remake_question")  # 상위 청크 기반 질문 리메이크
+    graph.add_edge("remake_question", "generate_answer")  # 리메이크된 질문으로 답변 생성
     graph.add_edge("generate_answer", "evaluate_answer")    # 생성된 답변 평가
     graph.add_edge("evaluate_answer", END)                 # 그래프 종료
 

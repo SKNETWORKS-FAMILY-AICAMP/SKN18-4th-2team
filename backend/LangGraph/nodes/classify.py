@@ -1,5 +1,5 @@
 from models import load_ollama_model
-from initstate import GraphState
+from ..initstate import GraphState
 
 from langchain_core.messages import HumanMessage, SystemMessage
 

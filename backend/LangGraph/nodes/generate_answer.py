@@ -1,6 +1,6 @@
 # backend/LangGraph/nodes/generate_answer.py
 from typing import List
-from initstate import GraphState
+from ..initstate import GraphState
 from models import load_openai_model
 from langchain_core.messages import HumanMessage, SystemMessage
 

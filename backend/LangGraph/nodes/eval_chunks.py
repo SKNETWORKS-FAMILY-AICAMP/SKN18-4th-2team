@@ -4,7 +4,7 @@ from pathlib import Path
 from langchain_core.messages import HumanMessage, SystemMessage
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
-from initstate import GraphState
+from ..initstate import GraphState
 from models import load_openai_model
 
 def node_evaluate_chunks(state: GraphState) -> GraphState:
