@@ -1,26 +1,26 @@
-version: '3.8'
+version: "3.9"
 
 services:
-  postgres:
+  db:
     image: pgvector/pgvector:pg16
-    container_name: skn4th_db
-    environment:
-      POSTGRES_USER: skn4th
-      POSTGRES_PASSWORD: skn4th1234
-      POSTGRES_DB: skn4th_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./colleag.sql:/docker-entrypoint-initdb.d/01_colleag.sql
-      - ./interview.sql:/docker-entrypoint-initdb.d/02_interview.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U interview_user -d skn4th_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    container_name: SKN_4th
     restart: unless-stopped
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./college.sql:/docker-entrypoint-initdb.d/college.sql
+      - ./interview.sql:/docker-entrypoint-initdb.d/interview.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
 volumes:
-  postgres_data:
-    driver: local
+  pgdata:
