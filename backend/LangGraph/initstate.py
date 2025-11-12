@@ -13,6 +13,7 @@ class GraphState(TypedDict):
     generate_question: str # 질문 재생성
 
     category: str # classify 이후 카테고리(면접/대학진로)
+    category_rag_finetune: str
 
     chunks: List[Chunk]
     final_chunks: List[Chunk]
