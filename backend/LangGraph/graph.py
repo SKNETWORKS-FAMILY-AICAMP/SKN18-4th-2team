@@ -1,12 +1,12 @@
 from langgraph.graph import StateGraph, END
 
-from initstate import GraphState
-from nodes.classify import classify_category
-from nodes.retrieve_chunks import retrieve_chunks_node
-from nodes.eval_chunks import node_evaluate_chunks
-from nodes.generate_questions import generate_user_question_node
-from nodes.generate_answer import generate_answer
-from nodes.eval_generated_answer import evaluate_question_answer
+from .initstate import GraphState
+from .nodes.classify import classify_category
+from .nodes.retrieve_chunks import retrieve_chunks_node
+from .nodes.eval_chunks import node_evaluate_chunks
+from .nodes.generate_questions import generate_user_question_node
+from .nodes.generate_answer import generate_answer
+from .nodes.eval_generated_answer import evaluate_question_answer
 
 def create_graph_flow():
     """
