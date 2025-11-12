@@ -163,24 +163,24 @@ def parse_args() -> IngestConfig:
     )
     parser.add_argument(
         "--csv",
-        default="../data/major_details_*.csv",
+        default="../data/college/major_details_*.csv",
         help="적재할 CSV 파일 경로 또는 glob 패턴",
     )
     parser.add_argument(
         "--table",
-        default="major_vector_chunks",
+        default="college.college_vector_db",
         help="pgvector 테이블명",
     )
     parser.add_argument(
         "--chunk-size",
         type=int,
-        default=1000,
+        default=500,
         help="텍스트 청크 크기",
     )
     parser.add_argument(
         "--chunk-overlap",
         type=int,
-        default=300,
+        default=200,
         help="청크 간 겹치는 토큰 수",
     )
     parser.add_argument(
