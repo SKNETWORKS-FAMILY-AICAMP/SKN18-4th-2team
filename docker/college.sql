@@ -1,7 +1,8 @@
--- Enable pgvector extension
 CREATE EXTENSION IF NOT EXISTS vector;
 
-CREATE TABLE IF NOT EXISTS major_vector_chunks (
+CREATE SCHEMA IF NOT EXISTS college;
+
+CREATE TABLE IF NOT EXISTS college.college_vector_db (
     id BIGSERIAL PRIMARY KEY,
     major_seq TEXT NOT NULL,
     major TEXT NOT NULL,
