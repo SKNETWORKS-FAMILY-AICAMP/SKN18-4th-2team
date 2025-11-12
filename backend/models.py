@@ -48,7 +48,7 @@ def load_openai_model(*, params_key: Tuple[Tuple[str, Any], ...]) -> ChatOpenAI:
 
 @lru_cache(maxsize=1) 
 def load_ollama_model() -> ChatOllama:
-    """ChatOllama LLM을 초기화"""
-    model = os.getenv("OLLAMA_MODEL")
-    temperature = float(os.getenv("GEN_TEMPERATURE", "0.2"))
+    """채Ollama LLM을 초기화"""
+    model = os.getenv("OLLAMA_MODEL", "llama3.2:latest")
+    temperature = float(os.getenv("CLASSIFY_TEMPERATURE", "0.2"))
     return ChatOllama(model=model, temperature=temperature)

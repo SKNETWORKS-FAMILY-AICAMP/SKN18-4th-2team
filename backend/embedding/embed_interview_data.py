@@ -1,390 +1,308 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-embed_data.py  (patched)
-- Korean-friendly sentence boundary chunking
-- Length-aware chunking rules with overlap
-- Answer embedding = mean of per-chunk embeddings
-- Keeps DB schema and external search code unchanged
+Embed Interview Q&A as paired chunks (char_len=300, overlap=100)
+Schema:
+  - interview.meta_df(doc_id PK, ... , content_combined, tokens_answer, tokens_combined)
+  - interview.vector(chunk_id PK, doc_id FK, chunk_seq, start_char, end_char, emb_model, emb_dim, embedding VECTOR(3072))
 """
 
-import os
-import re
-import sys
-import time
-from typing import List, Tuple, Dict
-
+import os, sys, re, time, argparse
+from typing import List, Tuple
+from pathlib import Path
 import pandas as pd
 import psycopg2
 from psycopg2.extras import execute_batch
-from dotenv import load_dotenv
-from tqdm import tqdm
 from openai import OpenAI
+from dotenv import load_dotenv
 import tiktoken
 
-# =============================================================================
+# -------------------
 # Config
-# =============================================================================
-
-load_dotenv()
-
+# -------------------
+# Load .env from project root
+script_dir = Path(__file__).resolve().parent
+project_root = script_dir.parent.parent  # backend/embedding -> backend -> project_root
+env_path = project_root / '.env'
+if env_path.exists():
+    load_dotenv(env_path)
+else:
+    # Fallback: try current directory
+    load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-large")
-EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "3072"))
-
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "localhost"),
-    "port": os.getenv("DB_PORT", "5432"),
-    "database": os.getenv("DB_NAME", "skn4th_db"),
-    "user": os.getenv("DB_USER", "skn4th"),
-    "password": os.getenv("DB_PASSWORD", "skn4th1234"),
+    "host": os.getenv("POSTGRES_HOST", os.getenv("DB_HOST", "localhost")),
+    "port": os.getenv("POSTGRES_PORT", os.getenv("DB_PORT", "5432")),
+    "database": os.getenv("POSTGRES_DB", os.getenv("DB_NAME", "skn4th_db")),
+    "user": os.getenv("POSTGRES_USER", os.getenv("DB_USER", "skn4th")),
+    "password": os.getenv("POSTGRES_PASSWORD", os.getenv("DB_PASSWORD", "sk4th1234")),
 }
+SCHEMA = os.getenv("DB_SCHEMA", "interview")
 
-BATCH_SIZE = int(os.getenv("BATCH_SIZE", "50"))
-RATE_LIMIT_DELAY = float(os.getenv("RATE_LIMIT_DELAY", "0.2"))  # seconds
+EMBED_MODEL = os.getenv("EMBED_MODEL", "text-embedding-3-large")
+EMBED_DIM = 3072
+BATCH_SIZE = 50
+RATE_LIMIT_DELAY = float(os.getenv("EMBED_RATE_DELAY", "0.2"))
 
-# Chunking thresholds (can be moved to .env if needed)
-CHUNK_ONE_MAX = int(os.getenv("CHUNK_ONE_MAX", "350"))     # ≤350: single chunk
-CHUNK_TWO_MAX = int(os.getenv("CHUNK_TWO_MAX", "600"))     # 351~600: 2 chunks with overlap
-OVERLAP_CHARS = int(os.getenv("OVERLAP_CHARS", "30"))      # 20~40 recommended; default 30
-LONG_TARGET = int(os.getenv("LONG_TARGET", "350"))         # target length for long answers (≈350)
+CHUNK_SIZE = 300
+CHUNK_OVERLAP = 100
 
-# =============================================================================
-# Sentence split & chunking utilities
-# =============================================================================
+# -------------------
+# Helpers
+# -------------------
+def normalize_text(s: str) -> str:
+    if not isinstance(s, str):
+        return ""
+    s = s.strip()
+    s = re.sub(r'\s+', ' ', s)
+    return s
 
-# Rough Korean-friendly sentence boundary splitter
-SENT_SPLIT_RE = re.compile(r'(?<=[.!?])\s+|(?<=다\.)\s+|(?<=요\.)\s+|(?<=[\u3002\uFF01\uFF1F])\s+')
+def to_chunk_id(doc_id: int, seq: int) -> str:
+    return f"DOC{int(doc_id):06d}_C{int(seq):02d}"
 
-def split_sentences(text: str) -> List[str]:
-    """Split text into sentences with basic Korean-friendly regex."""
-    text = re.sub(r'\s+', ' ', text or '').strip()
-    if not text:
-        return []
-    sents = [s.strip() for s in SENT_SPLIT_RE.split(text) if s.strip()]
-    return sents
-
-def join_until_len(sents: List[str], start: int, max_len: int) -> Tuple[str, int]:
-    """Append sentences starting at `start` until `max_len` approx reached."""
-    buf, i = [], start
-    length = 0
-    while i < len(sents):
-        add = ((' ' if buf else '') + sents[i])
-        if length + len(add) > max_len and buf:
+def char_chunks(text: str, max_len: int, overlap: int) -> List[Tuple[int,int,str]]:
+    """
+    Simple char-based chunking with overlap. Returns list of (start, end, chunk_text).
+    Uses step = max_len - overlap.
+    """
+    txt = text
+    n = len(txt)
+    if n <= max_len:
+        return [(0, n, txt)]
+    step = max(1, max_len - overlap)
+    chunks = []
+    start = 0
+    while start < n:
+        end = min(start + max_len, n)
+        # try to end at a boundary if possible (Korean/English sentence-ish)
+        boundary = max(txt.rfind(" ", start, end), txt.rfind(".", start, end), txt.rfind("!", start, end), txt.rfind("?", start, end), txt.rfind("。", start, end), txt.rfind("…", start, end))
+        if boundary != -1 and boundary > start + int(max_len*0.6):
+            end = boundary + 1
+        chunk = txt[start:end]
+        chunks.append((start, end, chunk))
+        if end == n:
             break
-        buf.append(sents[i])
-        length += len(add)
-        i += 1
-    return ' '.join(buf).strip(), i
+        start = max(0, end - overlap)
+    return chunks
 
-def add_overlap(src: str, nxt: str, overlap: int = OVERLAP_CHARS) -> Tuple[str, str]:
-    """Prepend tail of `src` to `nxt` for soft continuity in embeddings."""
-    if not src or not nxt or overlap <= 0:
-        return src, nxt
-    left_tail = src[-overlap:]
-    if not nxt.startswith(left_tail):
-        nxt = (left_tail + nxt).strip()
-    return src, nxt
+def make_combined(q: str, a: str) -> str:
+    q = normalize_text(q)
+    a = normalize_text(a)
+    return f"Q: {q}\nA: {a}"
 
-def chunk_answer_by_rule(answer: str) -> List[str]:
-    """
-    Rules:
-    - ≤ CHUNK_ONE_MAX(350): 1 chunk (no overlap)
-    - CHUNK_ONE_MAX+1 ~ CHUNK_TWO_MAX(600): 2 chunks with ~30 chars overlap
-      * cut at sentence boundary, try to balance lengths
-    - > CHUNK_TWO_MAX: up to 3 chunks, each ~LONG_TARGET chars, with overlap
-    """
-    if not isinstance(answer, str):
-        return ['']
+def to_pgvector_literal(vec: List[float]) -> str:
+    # pgvector accepts string literal like '[0.1, 0.2, ...]'
+    return "[" + ",".join(f"{x:.7f}" for x in vec) + "]"
 
-    text = re.sub(r'\s+', ' ', answer).strip()
-    n = len(text)
-    if n <= CHUNK_ONE_MAX:
-        return [text]
-
-    sents = split_sentences(text) or [text]
-    chunks: List[str] = []
-
-    if CHUNK_ONE_MAX < n <= CHUNK_TWO_MAX:
-        half = max(280, min(330, n // 2))  # try to split around mid
-        c1, idx = join_until_len(sents, 0, half)
-        c2 = ' '.join(sents[idx:]).strip()
-        c1, c2 = add_overlap(c1, c2, OVERLAP_CHARS)
-        chunks = [c1, c2]
-    else:
-        # Long case: make up to 3 chunks around LONG_TARGET
-        i = 0
-        while i < len(sents) and len(chunks) < 3:
-            c, i = join_until_len(sents, i, LONG_TARGET)
-            if c:
-                chunks.append(c)
-            else:
-                break
-        if len(chunks) >= 2:
-            chunks[0], chunks[1] = add_overlap(chunks[0], chunks[1], OVERLAP_CHARS)
-        if len(chunks) >= 3:
-            chunks[1], chunks[2] = add_overlap(chunks[1], chunks[2], OVERLAP_CHARS)
-
-    chunks = [c for c in chunks if c.strip()]
-    return chunks or [text]
-
-def avg_vectors(vecs: List[List[float]]) -> List[float]:
-    """Compute element-wise mean of vectors (defensive to dim mismatches)."""
-    if not vecs:
-        return None
-    dim = len(vecs[0])
-    acc = [0.0] * dim
-    count = 0
-    for v in vecs:
-        if not isinstance(v, list) or len(v) != dim:
-            continue
-        for i in range(dim):
-            acc[i] += v[i]
-        count += 1
-    if count == 0:
-        return None
-    return [x / count for x in acc]
-
-# =============================================================================
-# Embedder
-# =============================================================================
-
-class Embedder:
+# -------------------
+# Main class
+# -------------------
+class PairEmbedder:
     def __init__(self, csv_path: str):
-        if not OPENAI_API_KEY:
-            print("✗ OPENAI_API_KEY not found in environment (.env).")
-            sys.exit(1)
-
         self.csv_path = csv_path
         self.client = OpenAI(api_key=OPENAI_API_KEY)
-        self.encoding = tiktoken.get_encoding("cl100k_base")
         self.conn = None
         self.cur = None
+        self.encoding = tiktoken.get_encoding("cl100k_base")
 
-    # ---------- DB ----------
+    # --- DB ---
     def connect_db(self):
-        try:
-            self.conn = psycopg2.connect(**DB_CONFIG)
-            self.cur = self.conn.cursor()
-            print("✓ Connected to database")
-        except Exception as e:
-            print(f"✗ DB connection failed: {e}")
-            sys.exit(1)
+        self.conn = psycopg2.connect(**DB_CONFIG)
+        self.cur = self.conn.cursor()
+        print("✓ Connected to database")
 
     def close_db(self):
-        try:
-            if self.cur: self.cur.close()
-            if self.conn: self.conn.close()
+        if self.cur: self.cur.close()
+        if self.conn: 
+            self.conn.close()
             print("✓ Database connection closed")
-        except Exception:
-            pass
 
-    # ---------- IO ----------
-    def load_csv(self) -> pd.DataFrame:
-        try:
-            df = pd.read_csv(self.csv_path, encoding="utf-8-sig")
-            if not {'question', 'answer'}.issubset(df.columns):
-                raise ValueError("CSV must contain 'question' and 'answer' columns.")
-            print(f"✓ Loaded {len(df)} rows from {self.csv_path}")
-            return df
-        except Exception as e:
-            print(f"✗ Failed to load CSV: {e}")
-            sys.exit(1)
+    # --- IO ---
+    def load_df(self) -> pd.DataFrame:
+        df = pd.read_csv(self.csv_path, encoding="utf-8-sig")
+        req = ["question", "answer"]
+        miss = [c for c in req if c not in df.columns]
+        if miss:
+            raise ValueError(f"Missing required columns: {miss}")
+        return df
 
-    # ---------- helpers ----------
-    @staticmethod
-    def create_chunk_id(doc_id: int, suffix: str = "") -> str:
-        return f"DOC{int(doc_id):06d}" + (f"_{suffix}" if suffix else "")
-
-    @staticmethod
-    def normalize_text(text: str) -> str:
-        if not isinstance(text, str):
-            return ""
-        t = text.lower()
-        t = re.sub(r'\s+', ' ', t)
-        t = re.sub(r'[^\w\sㄱ-ㅎ가-힣.,!?]', '', t)
-        return t.strip()
+    # --- OpenAI ---
+    def embed(self, text: str) -> List[float]:
+        resp = self.client.embeddings.create(
+            model=EMBED_MODEL,
+            input=text,
+            encoding_format="float"
+        )
+        return resp.data[0].embedding
 
     def count_tokens(self, text: str) -> int:
         try:
-            return len(self.encoding.encode(text or ""))
+            return len(self.encoding.encode(text))
         except Exception:
             return 0
 
-    def get_embedding(self, text: str) -> List[float]:
-        if not text:
-            return None
-        try:
-            resp = self.client.embeddings.create(
-                model=EMBEDDING_MODEL,
-                input=text,
-                encoding_format="float",
-            )
-            return resp.data[0].embedding
-        except Exception as e:
-            print(f"⚠ Embedding error: {e}")
-            return None
-
-    # ---------- Inserts ----------
-    def insert_metadata_batch(self, rows: List[tuple]):
-        sql = """
-        INSERT INTO qa.meta_df (
-            chunk_id, doc_id, occupation, gender, age_range, experience,
+    # --- Inserts ---
+    def upsert_meta_df(self, rows: List[tuple]):
+        sql = f"""
+        INSERT INTO {SCHEMA}.meta_df (
+            doc_id, occupation, gender, age_range, experience,
             answer_intent_category, answer_emotion_expression, answer_emotion_category,
-            question_intent, question_text, question_text_norm, answer_text,
-            content_combined, tokens_answer, tokens_combined, group_id
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (chunk_id) DO NOTHING
+            question_intent, question_text, answer_text, content_combined,
+            tokens_answer, tokens_combined
+        ) VALUES (
+            %s,%s,%s,%s,%s,
+            %s,%s,%s,
+            %s,%s,%s,%s,
+            %s,%s
+        )
+        ON CONFLICT (doc_id) DO UPDATE SET
+            occupation = EXCLUDED.occupation,
+            gender = EXCLUDED.gender,
+            age_range = EXCLUDED.age_range,
+            experience = EXCLUDED.experience,
+            answer_intent_category = EXCLUDED.answer_intent_category,
+            answer_emotion_expression = EXCLUDED.answer_emotion_expression,
+            answer_emotion_category = EXCLUDED.answer_emotion_category,
+            question_intent = EXCLUDED.question_intent,
+            question_text = EXCLUDED.question_text,
+            answer_text = EXCLUDED.answer_text,
+            content_combined = EXCLUDED.content_combined,
+            tokens_answer = EXCLUDED.tokens_answer,
+            tokens_combined = EXCLUDED.tokens_combined
         """
-        try:
-            execute_batch(self.cur, sql, rows)
-            self.conn.commit()
-        except Exception as e:
-            self.conn.rollback()
-            raise RuntimeError(f"Metadata insert failed: {e}")
+        execute_batch(self.cur, sql, rows, page_size=100)
+        self.conn.commit()
 
-    def insert_q_batch(self, rows: List[tuple]):
-        sql = """
-        INSERT INTO qa.vec_q_index (chunk_id_q, chunk_id, emb_model, emb_dim, embedding)
-        VALUES (%s, %s, %s, %s, %s)
-        ON CONFLICT (chunk_id_q) DO UPDATE SET
-            embedding = EXCLUDED.embedding,
+    def insert_vector_rows(self, rows: List[tuple]):
+        """
+        rows: (chunk_id, doc_id, chunk_seq, start_char, end_char, emb_model, emb_dim, embedding_literal)
+        """
+        sql = f"""
+        INSERT INTO {SCHEMA}.vector
+        (chunk_id, doc_id, chunk_seq, start_char, end_char, emb_model, emb_dim, embedding)
+        VALUES (%s,%s,%s,%s,%s,%s,%s, %s)
+        ON CONFLICT (chunk_id) DO UPDATE SET
+            doc_id = EXCLUDED.doc_id,
+            chunk_seq = EXCLUDED.chunk_seq,
+            start_char = EXCLUDED.start_char,
+            end_char = EXCLUDED.end_char,
             emb_model = EXCLUDED.emb_model,
-            emb_dim = EXCLUDED.emb_dim
+            emb_dim = EXCLUDED.emb_dim,
+            embedding = EXCLUDED.embedding
         """
-        try:
-            execute_batch(self.cur, sql, rows)
-            self.conn.commit()
-        except Exception as e:
-            self.conn.rollback()
-            raise RuntimeError(f"Q-index insert failed: {e}")
+        # IMPORTANT: tell psycopg2 that last param is typed as vector using explicit cast
+        # We can embed the cast in the VALUES by passing as sql literal with ::vector
+        # Since execute_batch paramizes, we pass the vector literal as text and rely on cast in SQL.
+        # So we slightly modify SQL to add ::vector
+        sql = sql.replace("EXCLUDED.embedding", "EXCLUDED.embedding").replace(
+            "VALUES (%s,%s,%s,%s,%s,%s,%s, %s)",
+            "VALUES (%s,%s,%s,%s,%s,%s,%s, %s::vector)"
+        )
+        execute_batch(self.cur, sql, rows, page_size=50)
+        self.conn.commit()
 
-    def insert_a_batch(self, rows: List[tuple]):
-        # First delete existing entries for these chunk_ids, then insert
-        chunk_ids = [row[0] for row in rows]
-        try:
-            if chunk_ids:
-                placeholders = ','.join(['%s'] * len(chunk_ids))
-                delete_sql = f"DELETE FROM qa.vec_a_index WHERE chunk_id IN ({placeholders})"
-                self.cur.execute(delete_sql, chunk_ids)
-            
-            insert_sql = """
-            INSERT INTO qa.vec_a_index (chunk_id, emb_model, emb_dim, embedding)
-            VALUES (%s, %s, %s, %s)
-            """
-            execute_batch(self.cur, insert_sql, rows)
-            self.conn.commit()
-        except Exception as e:
-            self.conn.rollback()
-            raise RuntimeError(f"A-index insert failed: {e}")
-
-    # ---------- Process ----------
-    def process(self):
-        df = self.load_csv()
+    # --- Process ---
+    def run(self):
+        df = self.load_df()
         total = len(df)
+        print(f"✓ Loaded {total} rows")
 
-        meta_rows, q_rows, a_rows = [], [], []
-        ok, err = 0, 0
+        meta_buf, vec_buf = [], []
+        done, errors = 0, 0
 
-        print(f"\n🚀 Start embedding ({total} rows)")
-        print(f"Model: {EMBEDDING_MODEL} (dim={EMBEDDING_DIMENSION})\n")
-
-        for i, row in tqdm(df.iterrows(), total=total, desc="Embedding"):
+        for i, row in df.iterrows():
             try:
-                doc_id = int(row.get('sample_id', i + 1)) if pd.notna(row.get('sample_id')) else (i + 1)
-                chunk_id = self.create_chunk_id(doc_id)
-                chunk_id_q = self.create_chunk_id(doc_id, "Q")
+                # doc_id = sample_id (fallback i+1)
+                sample_id = row.get("sample_id")
+                doc_id = int(sample_id) if pd.notna(sample_id) else (i + 1)
 
-                question = str(row.get('question', '')).strip()
-                answer = str(row.get('answer', '')).strip()
+                q = str(row.get("question", ""))
+                a = str(row.get("answer", ""))
+                occupation = str(row.get("occupation", "") or "")
+                gender = str(row.get("gender", "") or "")
+                age_range = str(row.get("ageRange", "") or row.get("age_range", "") or "")
+                experience = str(row.get("experience", "") or "")
+                ans_intent = str(row.get("answer-intent_category", "") or row.get("answer_intent_category", "") or "")
+                ans_em_exp = str(row.get("answer-emotion_expression", "") or "")
+                ans_em_cat = str(row.get("answer-emotion_category", "") or "")
+                q_intent   = str(row.get("question_intent", "") or "")
 
-                q_norm = self.normalize_text(question)
-                combined = f"Q: {question}\nA: {answer}"
-                tok_ans = self.count_tokens(answer)
-                tok_all = self.count_tokens(combined)
+                combined = make_combined(q, a)
+                tok_ans = self.count_tokens(a)
+                tok_comb = self.count_tokens(combined)
 
-                # meta
-                meta_rows.append((
-                    chunk_id,
-                    doc_id,
-                    str(row.get('occupation', '') or ''),
-                    str(row.get('gender', '') or ''),
-                    str(row.get('ageRange', '') or ''),
-                    str(row.get('experience', '') or ''),
-                    str(row.get('answer-intent_category', '') or ''),
-                    str(row.get('answer-emotion_expression', '') or ''),
-                    str(row.get('answer-emotion_category', '') or ''),
-                    str(row.get('question_intent', '') or ''),
-                    question,
-                    q_norm,
-                    answer,
-                    combined,
-                    tok_ans,
-                    tok_all,
-                    None,
+                meta_buf.append((
+                    doc_id, occupation, gender, age_range, experience,
+                    ans_intent, ans_em_exp, ans_em_cat,
+                    q_intent, q, a, combined,
+                    tok_ans, tok_comb
                 ))
 
-                # Q embedding (use normalized question; upstream may expand if needed)
-                q_vec = self.get_embedding(q_norm or question)
-                if q_vec:
-                    q_rows.append((chunk_id_q, chunk_id, EMBEDDING_MODEL, EMBEDDING_DIMENSION, q_vec))
+                # chunk + embed
+                chunks = char_chunks(combined, CHUNK_SIZE, CHUNK_OVERLAP)
+                for seq, (s, e, ch_text) in enumerate(chunks, start=1):
+                    emb = self.embed(ch_text)
+                    chunk_id = to_chunk_id(doc_id, seq)
+                    vec_buf.append((
+                        chunk_id, doc_id, seq, s, e, EMBED_MODEL, EMBED_DIM,
+                        to_pgvector_literal(emb)  # casted to vector in SQL
+                    ))
+                    time.sleep(RATE_LIMIT_DELAY)
 
-                # A embedding via chunking → per-chunk embeddings → mean
-                a_chunks = chunk_answer_by_rule(answer)
-                a_vecs = []
-                for c in a_chunks:
-                    v = self.get_embedding(c)
-                    if v:
-                        a_vecs.append(v)
-                    time.sleep(RATE_LIMIT_DELAY)  # polite pacing within batch
+                done += 1
 
-                a_vec = avg_vectors(a_vecs) if a_vecs else None
-                if a_vec:
-                    a_rows.append((chunk_id, EMBEDDING_MODEL, EMBEDDING_DIMENSION, a_vec))
+                # Flush meta first if either buffer is full (to respect FK constraint)
+                if len(meta_buf) >= BATCH_SIZE or len(vec_buf) >= BATCH_SIZE:
+                    if meta_buf:
+                        self.upsert_meta_df(meta_buf)
+                        meta_buf = []
+                    if vec_buf:
+                        self.insert_vector_rows(vec_buf)
+                        vec_buf = []
 
-                ok += 1
-
-                # Flush in batches
-                if len(meta_rows) >= BATCH_SIZE:
-                    self.insert_metadata_batch(meta_rows)
-                    meta_rows = []
-                if len(q_rows) >= BATCH_SIZE:
-                    self.insert_q_batch(q_rows)
-                    q_rows = []
-                if len(a_rows) >= BATCH_SIZE:
-                    self.insert_a_batch(a_rows)
-                    a_rows = []
-
+            except KeyboardInterrupt:
+                print("\n! Interrupted by user")
+                break
             except Exception as e:
-                err += 1
-                print(f"\n✗ Row {i} failed: {e}")
+                errors += 1
+                print(f"✗ Row {i} (doc_id={row.get('sample_id')}): {e}")
 
-        # final flush
-        if meta_rows:
-            self.insert_metadata_batch(meta_rows)
-        if q_rows:
-            self.insert_q_batch(q_rows)
-        if a_rows:
-            self.insert_a_batch(a_rows)
+        # flush
+        if meta_buf: self.upsert_meta_df(meta_buf)
+        if vec_buf:  self.insert_vector_rows(vec_buf)
 
-        print(f"\n✅ Done. Success: {ok}, Errors: {err}, Total: {total}")
+        print(f"\n✅ Done. processed={done}, errors={errors}")
 
-# =============================================================================
+# -------------------
 # CLI
-# =============================================================================
-
+# -------------------
 def main():
-    import argparse
-    parser = argparse.ArgumentParser(description="Embed interview Q/A with chunked answer embeddings (mean pooling)")
-    parser.add_argument("--input", required=True, help="Path to CSV (must include 'question','answer' cols)")
-    args = parser.parse_args()
+    global SCHEMA, CHUNK_SIZE, CHUNK_OVERLAP
+    
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--input", required=True, help="Path to CSV")
+    ap.add_argument("--schema", default=SCHEMA, help="DB schema (default: interview)")
+    ap.add_argument("--chunk", type=int, default=CHUNK_SIZE, help="chunk char length (default 300)")
+    ap.add_argument("--overlap", type=int, default=CHUNK_OVERLAP, help="overlap char length (default 100)")
+    args = ap.parse_args()
 
-    E = Embedder(args.input)
-    E.connect_db()
+    SCHEMA = args.schema
+    CHUNK_SIZE = args.chunk
+    CHUNK_OVERLAP = args.overlap
+
+    if not OPENAI_API_KEY:
+        print("✗ OPENAI_API_KEY missing")
+        sys.exit(1)
+
+    # Debug: print DB config (without password)
+    print(f"DB Config: host={DB_CONFIG['host']}, port={DB_CONFIG['port']}, database={DB_CONFIG['database']}, user={DB_CONFIG['user']}")
+    
+    runner = PairEmbedder(args.input)
     try:
-        E.process()
+        runner.connect_db()
+        runner.run()
     finally:
-        E.close_db()
+        runner.close_db()
 
 if __name__ == "__main__":
     main()

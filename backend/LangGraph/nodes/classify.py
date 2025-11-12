@@ -1,10 +1,14 @@
+import os
 from models import load_ollama_model
 from initstate import GraphState
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
 def classify_category(state: GraphState) -> GraphState:
-    """카테고리 분류 노드""" 
+    """카테고리 봠6류 노드""" 
+    # 환경변수에서 OLLAMA_MODEL 읽기, 없으면 llama3.2:latest 사용
+    model_name = os.getenv("OLLAMA_MODEL", "llama3.2:latest")
+    temperature = float(os.getenv("CLASSIFY_TEMPERATURE", "0.2"))
     llm = load_ollama_model()
     message = [
         SystemMessage(
