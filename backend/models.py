@@ -1,6 +1,6 @@
 import os
 from functools import lru_cache
-from typing import Tuple, Any
+from typing import Tuple, Any, Mapping, Optional
 
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.chat_models import ChatOllama
@@ -45,10 +45,18 @@ def load_openai_model(*, params_key: Tuple[Tuple[str, Any], ...]) -> ChatOpenAI:
     """답변생성 혹은 평가 모델을 로드하는 함수"""
     params = dict(params_key)
     return ChatOpenAI(**params)
-
+# 이코드 기존 꺼 인지 뭔지 모르겠지만..? 삭제해도 될듯함.
 @lru_cache(maxsize=1) 
 def load_ollama_model() -> ChatOllama:
     """채Ollama LLM을 초기화"""
     model = os.getenv("OLLAMA_MODEL", "llama3.2:latest")
+    temperature = float(os.getenv("CLASSIFY_TEMPERATURE", "0.2"))
+    return ChatOllama(model=model, temperature=temperature)
+
+
+# 파인튜닝 모델 
+@lru_cache(maxsize=1)
+def load_finetune_ollama_model() -> ChatOllama:
+    model = os.getenv("OLLAMA_MODEL", "") # 이곳에 해당 모델명 입력
     temperature = float(os.getenv("CLASSIFY_TEMPERATURE", "0.2"))
     return ChatOllama(model=model, temperature=temperature)
