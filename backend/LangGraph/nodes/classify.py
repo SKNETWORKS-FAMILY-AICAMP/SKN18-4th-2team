@@ -1,3 +1,6 @@
+import os, sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 from models import load_ollama_model
 from initstate import GraphState
 
