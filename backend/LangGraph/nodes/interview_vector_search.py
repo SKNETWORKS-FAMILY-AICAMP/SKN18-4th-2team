@@ -202,7 +202,7 @@ def interview_vector_search_node(state: GraphState) -> GraphState:
         embedding_fn=embed
     )
     
-    chunk_lst = list()
+    chunk_lst = state.get('chunks', [])
     question = state.get("question", "")
     query_type = state.get("interview_query_type", "answer_feedback")
     keywords = state.get("interview_keywords", [])
