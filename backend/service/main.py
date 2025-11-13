@@ -3,15 +3,14 @@ import sys
 from dotenv import load_dotenv
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from LangGraph.graph import create_collage_graph_flow
+from LangGraph.graph import create_graph_flow
 
 
 def main():
-    app = create_collage_graph_flow()
+    app = create_graph_flow()
     
-    answer = app.invoke({"user": "고등학생", "question": ""})
+    answer = app.invoke({"user": "취업준비생", "question": "개발회사 면접을 보는데 리더십 관련 예상질문 알려줘!"})
 
-    print(answer["answer"])
 
 if __name__ == "__main__":
     load_dotenv()
