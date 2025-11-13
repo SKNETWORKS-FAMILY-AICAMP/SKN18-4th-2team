@@ -3,7 +3,7 @@ from functools import lru_cache
 from typing import Tuple, Any
 
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.chat_models import ChatOllama
+from langchain_ollama import ChatOllama
 from langchain_openai import OpenAIEmbeddings
 from langchain_openai import ChatOpenAI
 

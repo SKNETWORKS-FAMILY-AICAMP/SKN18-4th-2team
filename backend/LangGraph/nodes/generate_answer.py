@@ -1,4 +1,4 @@
-# backend/LangGraph/nodes/generate_answer.py
+import os
 from typing import List
 from ..initstate import GraphState
 from models import load_openai_model
@@ -18,22 +18,23 @@ def _join_context(chunks: List[dict]) -> str:
 
 def generate_answer(state: GraphState) -> GraphState:
     """
-    ✅ ft_model 역할:
-    - RAG 결과(final_chunks) + (재작성된) 질문을 바탕으로
-    - 파인튜닝된 OpenAI 챗모델을 호출해 최종 답변을 생성
-    - performance_analysis_agent 예시처럼 System/Human 메시지 분리, invoke(messages) 사용
+    ✅ generate_answer 역할:
+    - RAG 결과(final_chunks)와 질문을 바탕으로
+    - OpenAI 챗모델(기본: GEN_MODEL 환경변수 또는 gpt-4o-mini)을 호출해 최종 답변 생성
     """
 
-    # 1) 모델 로드 (환경에 맞게 모델명만 바꿔쓰면 됨)
-    #    예: "ft:gpt-4o-mini-2024-XX-XX" 또는 사내 FT 모델명
-    params = {"model": "ft:gpt-3.5-turbo-finetuned", "temperature": 0.3}
+    # 1️⃣ 모델명과 온도 설정
+    model_name = os.getenv("GEN_MODEL", "gpt-4o-mini")
+    temperature = float(os.getenv("GEN_TEMPERATURE", "0.3"))
+
+    params = {"model": model_name, "temperature": temperature}
     llm = load_openai_model(params_key=tuple(sorted(params.items())))
 
-    # 2) 컨텍스트 및 질문 준비
+    # 2️⃣ 컨텍스트 및 질문 구성
     context = _join_context(state.get("final_chunks", []))
     question = (state.get("generate_question") or state.get("question") or "").strip()
 
-    # 3) 메시지 구성 (참고 예시의 톤/구조 차용)
+    # 3️⃣ 메시지 생성
     messages = [
         SystemMessage(content="""
 당신은 신뢰도 높은 전문가 어시스턴트입니다.
@@ -54,18 +55,17 @@ def generate_answer(state: GraphState) -> GraphState:
 요청:
 - 위 문맥을 근거로 정확하고 간결한 최종 답변을 작성
 - 필요시 짧은 근거/사유를 함께 제시
-        """.strip())
+        """.strip()),
     ]
 
-    # 4) 모델 호출
+    # 4️⃣ 모델 호출
     response = llm.invoke(messages)
     answer = (response.content or "").strip()
 
-    # 5) 상태 업데이트
+    # 5️⃣ 상태 업데이트
     state["answer"] = answer
     state["final_answer"] = answer
 
-    # 6) 간단 로그
-    print("[ft_model(generate_answer)] 최종 답변 생성 완료")
-
+    # 6️⃣ 로그 출력
+    print(f"[generate_answer] ✅ 답변 생성 완료 — 모델: {model_name}")
     return state

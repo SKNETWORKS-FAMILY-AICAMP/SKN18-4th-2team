@@ -1,3 +1,6 @@
+import os
+os.environ["LANGCHAIN_TRACING_V2"] = "false"
+
 from pathlib import Path
 import sys
 from dotenv import load_dotenv

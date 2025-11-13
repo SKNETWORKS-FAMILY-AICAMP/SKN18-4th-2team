@@ -1,3 +1,4 @@
+import os
 from ..initstate import GraphState
 from models import load_openai_model
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -12,8 +13,11 @@ def evaluate_question_answer(state: GraphState) -> GraphState:
     기준으로 점수를 0~1 사이로 산출하고, 개선 피드백까지 제시
     """
 
-    # 1️⃣ 평가용 모델 로드 (빠른 응답 위해 gpt-4o-mini 권장)
-    params = {"model": "gpt-4o-mini", "temperature": 0}
+    # 1️⃣ 평가용 모델 로드 (.env의 EVAL_MODEL 사용, 기본값 gpt-4o-mini)
+    model_name = os.getenv("EVAL_MODEL", "gpt-4o-mini")
+    temperature = float(os.getenv("EVAL_TEMPERATURE", "0.0"))
+
+    params = {"model": model_name, "temperature": temperature}
     llm = load_openai_model(params_key=tuple(sorted(params.items())))
 
     # 2️⃣ 필요한 데이터 준비
