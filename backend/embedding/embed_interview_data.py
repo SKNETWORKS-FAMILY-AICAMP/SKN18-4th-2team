@@ -8,7 +8,7 @@ Schema:
 """
 
 import os, sys, re, time, argparse
-from typing import List, Tuple
+from typing import List, Tuple, Set
 from pathlib import Path
 import pandas as pd
 import psycopg2
@@ -16,6 +16,7 @@ from psycopg2.extras import execute_batch
 from openai import OpenAI
 from dotenv import load_dotenv
 import tiktoken
+from tqdm import tqdm
 
 # -------------------
 # Config
@@ -46,6 +47,7 @@ RATE_LIMIT_DELAY = float(os.getenv("EMBED_RATE_DELAY", "0.2"))
 
 CHUNK_SIZE = 300
 CHUNK_OVERLAP = 100
+CHECKPOINT_INTERVAL = 3000  # Save checkpoint every N documents
 
 # -------------------
 # Helpers
@@ -116,6 +118,21 @@ class PairEmbedder:
         if self.conn: 
             self.conn.close()
             print("✓ Database connection closed")
+
+    def get_processed_doc_ids(self) -> Set[int]:
+        """Get set of doc_ids that already have embeddings in the database"""
+        try:
+            sql = f"""
+            SELECT DISTINCT doc_id 
+            FROM {SCHEMA}.vector
+            WHERE emb_model = %s
+            """
+            self.cur.execute(sql, (EMBED_MODEL,))
+            result = self.cur.fetchall()
+            return {row[0] for row in result}
+        except Exception as e:
+            print(f"Warning: Could not check existing doc_ids: {e}")
+            return set()
 
     # --- IO ---
     def load_df(self) -> pd.DataFrame:
@@ -202,19 +219,41 @@ class PairEmbedder:
         self.conn.commit()
 
     # --- Process ---
-    def run(self):
+    def run(self, resume: bool = True):
         df = self.load_df()
         total = len(df)
         print(f"✓ Loaded {total} rows")
 
+        # Get already processed doc_ids if resuming
+        processed_doc_ids = set()
+        if resume:
+            print("Checking for already processed documents...")
+            processed_doc_ids = self.get_processed_doc_ids()
+            if processed_doc_ids:
+                print(f"✓ Found {len(processed_doc_ids)} already processed documents (will skip)")
+            else:
+                print("✓ No existing embeddings found, starting fresh")
+
         meta_buf, vec_buf = [], []
-        done, errors = 0, 0
+        done, errors, skipped = 0, 0, 0
+        last_checkpoint = 0
+
+        # Create progress bar
+        pbar = tqdm(total=total, desc="Embedding", unit="doc", 
+                   bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]")
 
         for i, row in df.iterrows():
             try:
                 # doc_id = sample_id (fallback i+1)
                 sample_id = row.get("sample_id")
                 doc_id = int(sample_id) if pd.notna(sample_id) else (i + 1)
+
+                # Skip if already processed
+                if doc_id in processed_doc_ids:
+                    skipped += 1
+                    pbar.update(1)
+                    pbar.set_postfix({"done": done, "skipped": skipped, "errors": errors})
+                    continue
 
                 q = str(row.get("question", ""))
                 a = str(row.get("answer", ""))
@@ -250,6 +289,7 @@ class PairEmbedder:
                     time.sleep(RATE_LIMIT_DELAY)
 
                 done += 1
+                processed_doc_ids.add(doc_id)  # Mark as processed
 
                 # Flush meta first if either buffer is full (to respect FK constraint)
                 if len(meta_buf) >= BATCH_SIZE or len(vec_buf) >= BATCH_SIZE:
@@ -260,35 +300,76 @@ class PairEmbedder:
                         self.insert_vector_rows(vec_buf)
                         vec_buf = []
 
+                # Checkpoint every CHECKPOINT_INTERVAL documents
+                if done > 0 and done % CHECKPOINT_INTERVAL == 0:
+                    # Flush any remaining buffers
+                    if meta_buf:
+                        self.upsert_meta_df(meta_buf)
+                        meta_buf = []
+                    if vec_buf:
+                        self.insert_vector_rows(vec_buf)
+                        vec_buf = []
+                    last_checkpoint = done
+                    pbar.set_postfix({
+                        "done": done, 
+                        "skipped": skipped, 
+                        "errors": errors,
+                        "checkpoint": f"@{done}"
+                    })
+                    print(f"\n✓ Checkpoint: {done} documents processed")
+
             except KeyboardInterrupt:
                 print("\n! Interrupted by user")
+                # Flush buffers before exit
+                if meta_buf:
+                    self.upsert_meta_df(meta_buf)
+                    meta_buf = []
+                if vec_buf:
+                    self.insert_vector_rows(vec_buf)
+                    vec_buf = []
+                print(f"✓ Saved progress: {done} documents processed")
+                print(f"  To resume, run the same command again (will skip {len(processed_doc_ids)} already processed)")
                 break
             except Exception as e:
                 errors += 1
-                print(f"✗ Row {i} (doc_id={row.get('sample_id')}): {e}")
+                print(f"\n✗ Row {i} (doc_id={row.get('sample_id')}): {e}")
+                pbar.set_postfix({"done": done, "skipped": skipped, "errors": errors})
 
-        # flush
-        if meta_buf: self.upsert_meta_df(meta_buf)
-        if vec_buf:  self.insert_vector_rows(vec_buf)
+            # Update progress bar
+            pbar.update(1)
+            pbar.set_postfix({"done": done, "skipped": skipped, "errors": errors})
 
-        print(f"\n✅ Done. processed={done}, errors={errors}")
+        # Final flush
+        if meta_buf: 
+            self.upsert_meta_df(meta_buf)
+            meta_buf = []
+        if vec_buf:  
+            self.insert_vector_rows(vec_buf)
+            vec_buf = []
+
+        pbar.close()
+        print(f"\n✅ Done. processed={done}, skipped={skipped}, errors={errors}")
 
 # -------------------
 # CLI
 # -------------------
 def main():
-    global SCHEMA, CHUNK_SIZE, CHUNK_OVERLAP
+    global SCHEMA, CHUNK_SIZE, CHUNK_OVERLAP, CHECKPOINT_INTERVAL
     
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", required=True, help="Path to CSV")
     ap.add_argument("--schema", default=SCHEMA, help="DB schema (default: interview)")
     ap.add_argument("--chunk", type=int, default=CHUNK_SIZE, help="chunk char length (default 300)")
     ap.add_argument("--overlap", type=int, default=CHUNK_OVERLAP, help="overlap char length (default 100)")
+    ap.add_argument("--no-resume", action="store_true", help="Don't resume from existing embeddings (start fresh)")
+    ap.add_argument("--checkpoint-interval", type=int, default=CHECKPOINT_INTERVAL, 
+                    help=f"Checkpoint interval in documents (default {CHECKPOINT_INTERVAL})")
     args = ap.parse_args()
 
     SCHEMA = args.schema
     CHUNK_SIZE = args.chunk
     CHUNK_OVERLAP = args.overlap
+    CHECKPOINT_INTERVAL = args.checkpoint_interval
 
     if not OPENAI_API_KEY:
         print("✗ OPENAI_API_KEY missing")
@@ -300,7 +381,7 @@ def main():
     runner = PairEmbedder(args.input)
     try:
         runner.connect_db()
-        runner.run()
+        runner.run(resume=not args.no_resume)
     finally:
         runner.close_db()
 
