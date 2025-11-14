@@ -2,6 +2,7 @@
 # vectorDB에서 코사인 유사도가 높은 chunck 추출 -> top_K =5
 # retrieve_chunk.py를 그대로 사용해도 될거 같은지 판단 필요
 import sys
+from typing import List
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
@@ -202,11 +203,22 @@ def interview_vector_search_node(state: GraphState) -> GraphState:
         embedding_fn=embed
     )
     
-    chunk_lst = state.get('chunks', [])
+    # 새 검색 시작 시 이전 청크는 초기화
+    chunk_lst: List[dict] = []
     question = state.get("question", "")
     query_type = state.get("interview_query_type", "answer_feedback")
     keywords = state.get("interview_keywords", [])
-    
+    used_metadata_filter = False
+
+    def _search_with_filter(filter_meta: dict):
+        if not filter_meta:
+            return []
+        return vectorstore.similarity_search_with_score(
+            query=question,
+            k=5,
+            filter=filter_meta
+        )
+
     # query_type에 따라 분기 처리
     if query_type == "question_recommendation" and keywords:
         # 질문 추천: SQL 필터링을 사용하여 검색
@@ -214,17 +226,22 @@ def interview_vector_search_node(state: GraphState) -> GraphState:
         filter_metadata = _build_metadata_filter(keywords)
         
         if filter_metadata:
-            # metadata 필터링과 함께 검색
-            results = vectorstore.similarity_search(
-                query=question,
-                k=5,
-                filter=filter_metadata
-            )
-            # similarity_search는 score를 반환하지 않으므로 별도 처리
-            for doc in results:
+            used_metadata_filter = True
+            results = _search_with_filter(filter_metadata)
+            # 필터 조합으로 결과가 없으면 intent 위주로 재검색
+            if not results and "question_intent" in filter_metadata:
+                results = _search_with_filter({"question_intent": filter_metadata["question_intent"]})
+            # intent만으로도 없다면 occupation만으로 재검색
+            if not results and "occupation" in filter_metadata:
+                results = _search_with_filter({"occupation": filter_metadata["occupation"]})
+            # 그래도 없으면 일반 검색으로 폴백
+            if not results:
+                used_metadata_filter = False
+                results = vectorstore.similarity_search_with_score(question, k=5)
+            for doc, score in results:
                 chunk_lst.append({
                     "content": doc.page_content,
-                    "score": 0.0,  # 필터링된 결과는 score를 별도로 계산하지 않음
+                    "score": float(score),
                     "metadata": {**(doc.metadata or {})}
                 })
         else:
@@ -248,7 +265,26 @@ def interview_vector_search_node(state: GraphState) -> GraphState:
             })
     
     state["chunks"] = chunk_lst
+    state["used_metadata_filter"] = used_metadata_filter
     
     return state
 
+def route_after_interview_vector_search(state: GraphState) -> str:
+    chunks = state.get("chunks", [])
+    query_type = state.get("interview_query_type", "")
+    rewrite_count = state.get("interview_rewrite_count", 0)
+    used_metadata_filter = state.get("used_metadata_filter", False)
 
+    if used_metadata_filter:
+        return "eval_chunk"
+
+    if rewrite_count >= 1:
+        return "eval_chunk"
+
+    if query_type == "question_recommendation":
+        low = sum(1 for chunk in chunks if chunk["score"] <= 0.3)
+
+        if low >= 4:
+            return "remake"
+
+    return "eval_chunk"

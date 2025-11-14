@@ -9,7 +9,7 @@ from LangGraph.graph import create_graph_flow
 def main():
     app = create_graph_flow()
     
-    answer = app.invoke({"user": "취업준비생", "question": "개발회사 면접을 보는데 리더십 관련 예상질문 알려줘!"})
+    answer = app.invoke({"user": "취업준비생", "question": "개발회사 면접을 보는데 리더십 관련 예상질문 알려줘."})
 
 
 if __name__ == "__main__":
