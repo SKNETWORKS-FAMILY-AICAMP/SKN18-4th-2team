@@ -95,7 +95,6 @@ class InterviewPGVector(VectorStore):
         self,
         query: str,
         k: int = 5,
-        filter: Optional[Dict[str, Any]] = None,
     ) -> List[Tuple[Document, float]]:
         """면접 데이터 유사도 검색 (점수 포함)"""
         query_emb = self.embedding_fn.embed_query(query)
@@ -118,27 +117,12 @@ class InterviewPGVector(VectorStore):
                 (v.embedding <-> %s::vector) AS distance
             FROM interview.vector v
             INNER JOIN interview.meta_df m ON v.doc_id = m.doc_id
-        """
-        params: List[Any] = [query_emb]
-        where_clauses = []
-        if filter:
-            if "occupation" in filter:
-                where_clauses.append("m.occupation = %s")
-                params.append(filter["occupation"])
-            if "question_intent" in filter:
-                where_clauses.append("m.question_intent = %s")
-                params.append(filter["question_intent"])
-        if where_clauses:
-            sql_query += " WHERE " + " AND ".join(where_clauses)
-        
-        sql_query += """
             ORDER BY distance
             LIMIT %s
         """
-        params.append(k)
         
         with self.conn.cursor() as cur:
-            cur.execute(sql_query, tuple(params))
+            cur.execute(sql_query, (query_emb, k))
             rows = cur.fetchall()
         
         documents = []
