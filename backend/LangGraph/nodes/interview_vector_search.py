@@ -45,7 +45,7 @@ def _build_metadata_filter(keywords: list) -> dict:
         'motivation_fit': [
             '목표', '지원동기', '지원', '동기', '포부', '우리회사', '적합', 
             '우선순위', '중점적', '선호', '희망부서', '희망', '부서', 
-            '가고싶은', '선호부서'
+            '가고싶은', '회사', '선호부서'
         ],
         
         # 2) self_reflection - 후회/장단점/자기소개/자신있는
@@ -90,7 +90,7 @@ def _build_metadata_filter(keywords: list) -> dict:
         # 8) compare_tradeoff - 비교/장단점/vs/trade-off
         'compare_tradeoff': [
             '비교', '장단점', '대안', '차이', 'vs', 'VS', 'trade-off', 'tradeoff', 
-            '트레이드오프', '선택', '중에', '어느'
+            '트레이드오프', '선택', '중에', '어느', '더'
         ],
         
         # 9) evidence_metric - 지표/수치/실험/검증/AUC/F1
