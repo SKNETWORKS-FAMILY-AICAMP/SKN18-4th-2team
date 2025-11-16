@@ -58,27 +58,20 @@ def create_graph_flow():
     graph.add_edge('remake_question', 'interview_vector_search')    # 재작성 질문으로 재검색
     graph.add_edge('interview_eval', 'interview_generation')
     graph.add_edge('interview_generation', END)
-    return graph.compile()
+    
 
-    # --- 대학·RAG 플로우 ---
-    graph.add_edge('retrieve', 'evaluate_chunks')
+    # 대학 쪽 RAG
     graph.add_conditional_edges(
-        'evaluate_chunks',
-        route_after_chunk_eval,              # 점수 기반으로 분기
+        'classify_rag_finetune',
+        route_rag_finetune,
         {
-            "answer": 'generate_answer',
-            "retry": 'remake_question',      # 질문 재작성 후 다시 retrieve로 가게끔
-            "fail": END,
+            "retrieve": "retrieve",
+            "generate_answer": "generate_answer",
         },
     )
-    graph.add_edge('remake_question', 'retrieve')
+    graph.add_edge('retrieve', 'evaluate_chunks')
+    graph.add_edge('evaluate_chunks', 'generate_answer')
     graph.add_edge('generate_answer', 'evaluate_answer')
     graph.add_edge('evaluate_answer', END)
-    return graph.compile()
 
-    ###############################################
-    #  GraphState에 재작성 점수 State 추가
-    # question_rewrite_attempts: int
-    # chunk_eval_top_score: float
-    # interview_question_rewrites: int
-    # interview_chunk_top_score: float
+    return graph.compile()
