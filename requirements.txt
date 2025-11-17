@@ -35,3 +35,7 @@ tiktoken==0.12.0
 tokenizers==0.22.1
 torch==2.9.0
 langchain-ollama==1.0.0
+
+# 장고 세팅
+django==5.2.8
+gunicorn==23.0.0

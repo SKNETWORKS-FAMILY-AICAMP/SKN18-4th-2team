@@ -1,0 +1,93 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat With Ditto</title>
+    <link rel="stylesheet" href="{% static 'chatbot/css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'chatbot/css/styles.css' %}">
+</head>
+
+<body>
+    <div class="chat-layout" data-chat-detail-url="{% url 'chatbot:chat-detail' %}">
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <p class="sidebar-heading">Navigation</p>
+                <div class="sidebar-nav">
+                    <a class="is-active" href="{% url 'chatbot:home' %}">Main</a>
+                    <a href="{% url 'chatbot:chat' %}">Chat With Ditto</a>
+                </div>
+            </div>
+            <div class="sidebar-section conversation-section">
+                <p class="sidebar-heading">Conversations</p>
+                <ul class="conversation-list" data-conversation-list>
+                    <li class="conversation-empty">아직 대화가 없습니다.</li>
+                </ul>
+                <button class="new-chat-btn" type="button" data-add-conversation>+ 새 대화 추가</button>
+            </div>
+        </aside>
+
+        <main class="main-panel">
+            <header class="page-header">
+                <h1>Chat With <span class="text-blue">Ditto</span></h1>
+                <p class="page-subtitle">사용자 기본 정보를 입력하고 개인화된 상담을 시작해보세요.</p>
+            </header>
+
+            <section class="welcome-hero">
+                <div class="hero-copy">
+                    <p class="eyebrow">Welcome,</p>
+                    <h2>Dreamtopia!</h2>
+                    <p>사용자 기본 정보를 입력해주세요</p>
+                </div>
+                <div class="hero-graphic">
+                    <img src="{% static 'chatbot/img/chatbot.png' %}" alt="Ditto chatbot" />
+                </div>
+            </section>
+
+            <form class="user-info-form" novalidate>
+
+                <div class="form-row">
+                    <p class="form-label">현재 진로 단계</p>
+                    <div class="button-group" data-single-select data-stage-select>
+                        <button type="button" class="option-btn selected" data-stage="student">고등학생</button>
+                        <button type="button" class="option-btn" data-stage="interview">대학생</button>
+                        <button type="button" class="option-btn" data-stage="interview">취업준비생</button>
+                        <button type="button" class="option-btn" data-stage="interview">구직자</button>
+                    </div>
+                </div>
+
+                <div class="form-row" data-student-only>
+                    <p class="form-label">현재 전공 계열</p>
+                    <div class="button-group" data-single-select data-major-select>
+                        <button type="button" class="option-btn selected">문과</button>
+                        <button type="button" class="option-btn">이과</button>
+                        <button type="button" class="option-btn">예체능</button>
+                    </div>
+                </div>
+
+                <div class="form-row" data-student-only>
+                    <p class="form-label">관심 계열</p>
+                    <div class="interest-tags">
+                        <button type="button" class="option-btn selected">잘 모르겠음</button>
+                        <button type="button" class="option-btn">공학/개발</button>
+                        <button type="button" class="option-btn">경영/경제</button>
+                        <button type="button" class="option-btn">예술/디자인</button>
+                        <button type="button" class="option-btn">교육/언어</button>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button class="primary-action submit-btn" type="submit"
+                        data-next-url="{% url 'chatbot:chat' %}">제출</button>
+                </div>
+            </form>
+        </main>
+    </div>
+
+    <script src="{% static 'chatbot/js/conversations.js' %}"></script>
+    <script src="{% static 'chatbot/js/script.js' %}"></script>
+</body>
+
+</html>

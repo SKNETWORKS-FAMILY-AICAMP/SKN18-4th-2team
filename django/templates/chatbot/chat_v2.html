@@ -1,0 +1,92 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot - Prompt Builder</title>
+    <link rel="stylesheet" href="{% static 'chatbot/css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'chatbot/css/chat_v2.css' %}">
+</head>
+<body>
+    <div class="chat-layout" data-chat-detail-url="{% url 'chatbot:chat-detail' %}">
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <p class="sidebar-heading">Navigation</p>
+                <div class="sidebar-nav">
+                    <a href="{% url 'chatbot:home' %}">Main</a>
+                    <a class="is-active" href="{% url 'chatbot:chat' %}">Chat With Dito</a>
+                </div>
+            </div>
+            <div class="sidebar-section conversation-section">
+                <p class="sidebar-heading">Conversations</p>
+                <ul class="conversation-list" data-conversation-list>
+                    <li class="conversation-empty">아직 대화가 없습니다.</li>
+                </ul>
+                <button class="new-chat-btn" type="button" data-add-conversation>+ 새 대화 추가</button>
+            </div>
+        </aside>
+
+        <main class="main-panel">
+            <header class="page-header">
+                <h1>Chat With <span class="text-blue">Dito</span></h1>
+                <p class="page-subtitle">무슨 내용을 물어봐야 할지 모르겠다면 아래 예시 질문을 참고해보세요.</p>
+            </header>
+
+            <section class="example-hero">
+                <div class="hero-copy">
+                    <p class="eyebrow">Welcome, Dreamtopia!</p>
+                    <h2>원하는 주제를 선택하고 시작하세요</h2>
+                    <p>면접 준비든, 대학 진로 상담이든 챗봇이 단계별로 안내해 드립니다.</p>
+                </div>
+                <div class="hero-bot">
+                    <div class="bot-circle">
+                        <div class="bot-face">
+                            <div class="bot-eyes"></div>
+                            <div class="bot-smile"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="example-cards">
+                <article class="example-card is-interview">
+                    <div class="card-icon">💼</div>
+                    <div class="card-body">
+                        <h3>취업 면접, 무엇이든 물어보세요!</h3>
+                        <p>직무 역량, 인성, PT 면접까지. 원하는 회사/직무를 적어주면 맞춤 질문을 추천해 드려요.</p>
+                        <ul>
+                            <li data-template="면접 질문 추천" data-body="백엔드 개발자 면접에서 자주 나오는 질문 5가지를 알려줘.">예: “백엔드 개발자 면접에서 자주 나오는 질문 알려줘.”</li>
+                            <li data-template="리더십 질문" data-body="팀 프로젝트에서 갈등 상황을 리더십으로 해결했던 사례 질문을 추천해줘.">예: “리더십을 강조한 질문을 추천해줘.”</li>
+                            <li data-template="답변 피드백" data-body="자기소개에 대한 내 답변을 보완해줘.">예: “내 자기소개 답변을 더 강하게 다듬어줘.”</li>
+                        </ul>
+                    </div>
+                </article>
+
+                <article class="example-card is-college">
+                    <div class="card-icon">🎓</div>
+                    <div class="card-body">
+                        <h3>대학 진학, 혼자 고민하지 마세요!</h3>
+                        <p>희망 계열과 관심사를 알려주면 입시 전략, 비교과 조언, 학과 탐색까지 도와드려요.</p>
+                        <ul>
+                            <li data-template="전공 탐색" data-body="문과 학생이 선택할 수 있는 AI 관련 학과를 추천해줘.">예: “문과 학생이 갈 수 있는 AI 관련 학과 추천해줘.”</li>
+                            <li data-template="교과 전략" data-body="공대 진학을 위해 고2 때 꼭 준비해야 할 과목을 알려줘.">예: “공대 진학을 위해 어떤 과목을 집중해야 할까?”</li>
+                            <li data-template="비교과" data-body="예체능 학생이 대학 진학에 활용할 수 있는 비교과 활동을 알려줘.">예: “예체능 학생에게 맞는 비교과 활동 알려줄래?”</li>
+                        </ul>
+                    </div>
+                </article>
+            </section>
+
+            <section class="quick-start">
+                <div class="message-input" data-message-input>
+                    <input type="text" placeholder="Write your message ..." data-message-field>
+                    <button type="button" class="primary-action" data-send-message>전송</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="{% static 'chatbot/js/conversations.js' %}"></script>
+    <script src="{% static 'chatbot/js/chat_v2.js' %}"></script>
+</body>
+</html>

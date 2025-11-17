@@ -2,7 +2,7 @@ from typing import Any, Dict, List
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from models import load_ollama_model
+from models import load_finetune_ollama_model
 from initstate import GraphState
 
 
@@ -22,7 +22,7 @@ def _chunks_to_context(chunks: List[Dict[str, Any]], limit: int = 5) -> str:
 
 def generate_answer(state: GraphState) -> GraphState:
     """평가된 chunk를 활용해 구조화된 답변을 생성한다."""
-    llm = load_ollama_model()
+    llm = load_finetune_ollama_model()
 
     base_question = (state.get("generate_question") or state.get("question") or "").strip()
     user_profile = (state.get("user") or "").strip()
