@@ -282,7 +282,7 @@ def route_after_interview_vector_search(state: GraphState) -> str:
         return "eval_chunk"
 
     if query_type == "question_recommendation":
-        low = sum(1 for chunk in chunks if chunk["score"] <= 0.3)
+        low = sum(1 for chunk in chunks if chunk["score"] <= 0.4)
 
         if low >= 4:
             return "remake"

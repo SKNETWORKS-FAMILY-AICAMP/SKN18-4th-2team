@@ -58,10 +58,12 @@ def interview_generation_node(state: GraphState) -> GraphState:
     else:
         most_common_intent = None
     
-    # chunk 내용을 문자열로 결합
-    # metadata는 vector_search에서 이미 포함되어 있음
+    # chunk 내용을 문자열로 결합 (메타데이터 포함)
     chunks_text = "\n\n".join([
-        f"[청크 {i+1}]\n{chunk.get('content', '')}" 
+        f"[청크 {i+1}]\n"
+        f"- 직군: {chunk.get('metadata', {}).get('occupation', 'N/A')}\n"
+        f"- 질문 유형: {chunk.get('metadata', {}).get('question_intent', 'N/A')}\n"
+        f"{chunk.get('content', '')}" 
         for i, chunk in enumerate(final_chunks)
     ])
     
@@ -71,21 +73,20 @@ def interview_generation_node(state: GraphState) -> GraphState:
         if most_common_intent:
             intent_instruction = (
                 f"\n주요 질문 유형: {most_common_intent}\n"
-                "- 이 유형과 유사한 질문을 5개 추천하라\n"
-                "- 추가로 다른 유형의 질문을 3개 추천하여 다양성을 제공하라"
+                "- 이 유형과 유사한 질문을 3개 추천하라\n"
             )
         
         message = [
             SystemMessage(
                 content=(
-                    "너는 면접 준비를 돕는 전문 컨설턴트이다. "
-                    "사용자의 요청에 따라 적절한 면접 질문들을 추천해야 한다.\n\n"
-                    "출력 규칙:\n"
-                    "1. 질문만 추천하고, 답변은 포함하지 마라\n"
-                    "2. 제공된 청크에서 question_intent를 분석하여 유사한 유형의 질문과 다른 유형의 질문을 추천하라\n"
-                    "3. 총 5개 정도의 면접 질문을 추천하라\n"
-                    "4. 각 질문은 번호를 매겨서 명확하게 구분하라\n"
-                    "5. 질문 유형별로 그룹화하여 제시하라"
+                    "너는 면접 준비를 돕는 전문 컨설턴트이다.\n\n"
+                    "**핵심 규칙:**\n"
+                    "- 청크의 텍스트를 그대로 사용하라 (수정/추가 금지)\n"
+                    "- 새로운 질문을 지어내지 마라\n\n"
+                    "출력 형식:\n"
+                    "1. 총 3개의 면접 질문을 번호와 함께 나열\n"
+                    "2. 마지막에 선정 이유를 2문장으로 요약 설명"
+                    "3. 답변수정 또는 다른 유형 면접추천 질문을 유도해라"
                     f"{intent_instruction}"
                 )
             ),
@@ -93,7 +94,7 @@ def interview_generation_node(state: GraphState) -> GraphState:
                 content=(
                     f"사용자 요청: {question}\n\n"
                     f"참고 자료:{intent_analysis}\n{chunks_text}\n\n"
-                    "위 정보를 바탕으로 관련 면접 질문들을 추천해 주세요."
+                    "청크의 [질문]을 3개 선택하여 추천하고, 선정 이유를 간략히 설명해주세요."
                 )
             ),
         ]
@@ -104,23 +105,25 @@ def interview_generation_node(state: GraphState) -> GraphState:
             intent_guidance = (
                 f"\n참고 자료는 주로 '{most_common_intent}' 유형의 질문에 대한 답변들이다. "
                 "이 유형의 특성을 고려하여 답변을 작성하고, "
-                "마지막에 같은 유형의 유사 질문 2~3개와 다른 유형의 연습 질문 2~3개를 추천하라."
+                "마지막에 같은 유형의 유사 질문 2개와 다른 유형의 연습 질문 2개를 추천하라."
             )
         
         message = [
             SystemMessage(
                 content=(
-                    "너는 면접 답변을 평가하고 개선하는 전문 컨설턴트이다. "
-                    "사용자의 면접 질문에 대한 적절한 답변을 제시하고, "
-                    "참고 자료와 비교하여 차이점을 분석하라.\n\n"
+                    "너는 면접 답변을 평가하고 개선하는 전문 컨설턴트이다.\n\n"
+                    "**핵심 규칙:**\n"
+                    "1. 반드시 제공된 청크의 [당변] 텍스트를 기반으로 작성하라\n"
+                    "2. 청크에 없는 내용을 절대 지어내지 마라\n"
+                    "3. 청크가 비어있거나 관련성이 낮으면 '관련 데이터 부족'으로 명시\n\n"
                     "출력 형식:\n"
-                    "1. 추천 답변: [구체적인 답변 내용]\n"
-                    "2. 핵심 포인트: [중요한 키워드나 구조]\n"
-                    "3. 참고 자료 분석:\n"
-                    "   - 공통점: [참고 답변들에서 공통적으로 나타나는 요소]\n"
-                    "   - 차이점: [각 답변들의 다른 접근 방식이나 강조점]\n"
-                    "   - 개선 포인트: [더 나은 답변을 위한 제안]\n"
-                    "4. 추가 연습 질문: [같은 유형 2~3개, 다른 유형 2~3개 추천]"
+                    "1. 추천 답변: [청크의 [답변] 내용을 분석하여 재구성]\n"
+                    "2. 핵심 포인트: [청크에서 추출한 주요 키워드 3-5개]\n"
+                    "3. 참고 자료 분석: [청크의 답변 패턴과 특징]\n"
+                    "   - 공통점: [청크의 답변들에서 공통적으로 나타나는 요소]\n"
+                    "   - 차이점: [각 청크의 다른 접근 방식이나 강조점]\n"
+                    "   - 개선 포인트: [청크를 기반으로 한 개선 제안]\n"
+                    "4. 추가 연습 질문: [청크의 직군/유형과 유사한 질문 2개과 직군 동일/다른 유형의 연습 질문]"
                     f"{intent_guidance}"
                 )
             ),
@@ -128,7 +131,8 @@ def interview_generation_node(state: GraphState) -> GraphState:
                 content=(
                     f"면접 질문: {question}\n\n"
                     f"참고 자료:{intent_analysis}\n{chunks_text}\n\n"
-                    "위 정보를 바탕으로 적절한 답변을 작성하고, 참고 자료들을 분석하여 차이점과 개선 포인트를 제시해 주세요."
+                    "위 청크의 [답변] 내용을 분석하여 추천 답변을 작성해주세요. "
+                    "청크가 비어있거나 관련성이 낮다면 '관련 데이터가 부족합니다'라고 명시하세요."
                 )
             ),
         ]

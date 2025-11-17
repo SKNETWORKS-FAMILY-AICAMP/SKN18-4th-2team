@@ -31,12 +31,26 @@ def interview_eval_node(state: GraphState) -> GraphState:
         }
         evaluated_chunks.append(chunk_with_eval)
     
-    # eval_score 기준으로 내림차순 정렬 후 상위 5개 선택
+    # eval_score 기준으로 내림차순 정렬
     sorted_chunks = sorted(
         evaluated_chunks, 
         key=lambda ch: ch.get("eval_score", 0.0), 
         reverse=True
     )
-    state["final_chunks"] = sorted_chunks[:3]
+    
+    # 최소 점수 임계값 적용 (0.5 이상만 사용)
+    MIN_RELEVANCE_SCORE = 0.4
+    filtered_chunks = [
+        chunk for chunk in sorted_chunks 
+        if chunk.get("eval_score", 0.0) >= MIN_RELEVANCE_SCORE
+    ]
+    
+    # 상위 3개 선택 (필터링 후)
+    state["final_chunks"] = filtered_chunks[:3]
+    
+    # 디버그: 필터링 결과 출력
+    # print(f"[EVAL] Total chunks: {len(evaluated_chunks)}, Filtered (>={MIN_RELEVANCE_SCORE}): {len(filtered_chunks)}, Final: {len(state['final_chunks'])}")
+    # for i, chunk in enumerate(state["final_chunks"]):
+    #     print(f"[EVAL] Chunk {i+1}: Score={chunk.get('eval_score'):.2f}, Reason={chunk.get('eval_reason')[:50]}...")
     
     return state
