@@ -14,8 +14,9 @@ services:
       - "${POSTGRES_PORT}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./college.sql:/docker-entrypoint-initdb.d/college.sql
-      - ./interview.sql:/docker-entrypoint-initdb.d/interview.sql
+      - C:/dev/study/team_project/SKN18-4th-2Team/docker/college.sql:/docker-entrypoint-initdb.d/college.sql
+      - C:/dev/study/team_project/SKN18-4th-2Team/docker/interview.sql:/docker-entrypoint-initdb.d/interview.sql
+
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
