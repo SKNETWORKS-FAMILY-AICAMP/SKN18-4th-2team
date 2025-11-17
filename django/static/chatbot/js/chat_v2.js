@@ -6,7 +6,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const messageField = document.querySelector('[data-message-field]');
     const sendButton = document.querySelector('[data-send-message]');
     const promptItems = document.querySelectorAll('[data-template]');
-    const profileModal = window.initProfileModal?.('[data-profile-modal]');
 
     function getDefaultProfile() {
         try {
@@ -16,26 +15,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function requestProfile(options = {}) {
-        return new Promise((resolve) => {
-            const forceBlank = !!options.forceBlank;
-            const providedProfile = options.profile;
-            const hasProvided = providedProfile && Object.keys(providedProfile).length > 0;
-            const baseProfile = forceBlank || !hasProvided
-                ? {}
-                : (providedProfile || getDefaultProfile());
-            const fallbackTitle = options.title || (baseProfile.name ? `${baseProfile.name}님의 새 대화` : '새 대화');
-            if (!profileModal) {
-                resolve({ title: fallbackTitle, profile: baseProfile });
-                return;
-            }
-            profileModal.open({
-                initialProfile: baseProfile,
-                initialTitle: fallbackTitle,
-                onSubmit: resolve,
-                onUseExisting: () => resolve({ title: fallbackTitle, profile: getDefaultProfile() }),
-            });
-        });
+    function ensureProfile() {
+        const profile = getDefaultProfile();
+        if (!profile.stageType) {
+            alert('먼저 사용자 정보를 입력해주세요.');
+            return null;
+        }
+        return profile;
     }
 
     function redirectToConversation(conversation) {
@@ -51,9 +37,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function createConversation({ title, profile, initialMessage }) {
+    function createConversation({ title, initialMessage }) {
+        const profile = ensureProfile();
+        if (!profile) return null;
         const messages = initialMessage ? [{ sender: 'user', text: initialMessage }] : [];
-        const conversation = ConversationStore.create(title || '새 대화', messages, profile || null);
+        const conversation = ConversationStore.create(title || '새 대화', messages, profile);
         if (initialMessage) {
             sessionStorage.setItem('chatbotPendingConversation', JSON.stringify({
                 conversationId: conversation.id,
@@ -63,35 +51,27 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             renderConversations();
         }
+        return conversation;
     }
 
     renderConversations();
 
     newChatButton?.addEventListener('click', () => {
-        requestProfile({ title: '새 대화', profile: {}, forceBlank: true }).then((result) => {
-            if (!result) return;
-            createConversation({ title: result.title, profile: result.profile });
-        });
+        createConversation({ title: '새 대화' });
     });
 
     promptItems.forEach((item) => {
         item.addEventListener('click', () => {
             const templateTitle = item.dataset.template || item.textContent.trim() || '새 대화';
             const body = item.dataset.body || templateTitle;
-            requestProfile({ title: templateTitle }).then((result) => {
-                if (!result) return;
-                createConversation({ title: result.title, profile: result.profile, initialMessage: body });
-            });
+            createConversation({ title: templateTitle, initialMessage: body });
         });
     });
 
     function handleSend() {
         const value = messageField?.value.trim();
         if (!value) return;
-        requestProfile({ title: '사용자 메시지' }).then((result) => {
-            if (!result) return;
-            createConversation({ title: result.title, profile: result.profile, initialMessage: value });
-        });
+        createConversation({ title: '사용자 메시지', initialMessage: value });
     }
 
     sendButton?.addEventListener('click', handleSend);
