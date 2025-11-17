@@ -1,4 +1,4 @@
-import sys, os, json
+import sys, os, json, re
 from pathlib import Path
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -38,10 +38,25 @@ def node_evaluate_chunks(state: GraphState) -> GraphState:
             ),
         ]
         raw = llm.invoke(message).content
+        parsed = {"score": 0.0, "reason": "LLM output parsing 실패"}
+        raw_text = (raw or "").strip()
+        if "```" in raw_text:
+            code_match = re.search(r'```(?:json)?\s*({.*?})\s*```', raw_text, re.DOTALL)
+            if code_match:
+                raw_text = code_match.group(1).strip()
+
         try:
-            parsed = json.loads(raw)
+            parsed = json.loads(raw_text)
         except json.JSONDecodeError:
-            parsed = {"score": 0.0, "reason": "LLM output parsing 실패"}
+            score_match = re.search(r'["\']?score["\']?\s*:\s*([0-9.]+)', raw_text, re.IGNORECASE)
+            reason_match = re.search(r'["\']?reason["\']?\s*:\s*["\']([^"\']+)["\']', raw_text, re.IGNORECASE)
+            if score_match:
+                parsed = {
+                    "score": float(score_match.group(1)),
+                    "reason": reason_match.group(1) if reason_match else raw_text[:120],
+                }
+            else:
+                parsed = {"score": 0.2, "reason": f"LLM 출력 파싱 실패 (raw: {raw_text[:80]}…)"}
 
         eval_score = float(parsed.get("score", 0.0))
         eval_reason = parsed.get("reason", "")
@@ -54,7 +69,11 @@ def node_evaluate_chunks(state: GraphState) -> GraphState:
         evaluated_chunks.append(chunk_with_eval)
 
     sorted_chunks = sorted(evaluated_chunks, key=lambda ch: ch.get("eval_score", 0.0), reverse=True)
-    state["final_chunks"] = sorted_chunks[:5]
+    min_score = float(os.getenv("CHUNK_MIN_SCORE", "0.5"))
+    filtered_chunks = [ch for ch in sorted_chunks if ch.get("eval_score", 0.0) >= min_score]
+    if not filtered_chunks:
+        filtered_chunks = sorted_chunks[:5]
+    state["final_chunks"] = filtered_chunks[:5]
     state["citations"] = [
         ch.get("metadata", {}) for ch in state["final_chunks"]
     ]

@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -51,6 +52,7 @@ def chatbot_ask(request):
         or result.get("answer")
         or "답변을 생성하지 못했습니다. 다시 시도해 주세요."
     )
+    answer = _normalize_answer_text(answer)
 
     response = {
         "answer": answer,
@@ -62,3 +64,32 @@ def chatbot_ask(request):
         },
     }
     return JsonResponse(response)
+
+
+def _normalize_answer_text(text: str) -> str:
+    """LLM 답변에서 마크다운 기호 제거 및 줄바꿈 보정."""
+    if not text:
+        return ""
+
+    cleaned = text.replace("**", "")
+    cleaned = cleaned.replace("•", "")
+    cleaned = cleaned.replace("* ", "")
+    cleaned = cleaned.replace("- ", "")
+    cleaned = cleaned.replace("\r\n", "\n")
+
+    cleaned = re.sub(r"(알겠습니다[^\n\.]*[\.!]\s*)", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"(제시된 정보를 바탕으로[^\n\.]*[\.!]\s*)", "", cleaned, flags=re.IGNORECASE)
+
+    cleaned = re.sub(r"(?<=\.)\s+(?=\d+[.)])", "\n\n", cleaned)
+    cleaned = re.sub(r"(?<!\n)(\d+\.\s)", r"\n\n\1", cleaned)
+    cleaned = re.sub(r"(?<!\n)(\d+\)\s)", r"\n\n\1", cleaned)
+    cleaned = re.sub(r"\s*((?:실행 전략|학과 추천)\s*\d+\)\s)", r"\n\n\1", cleaned)
+    cleaned = re.sub(r"\s*(상황 요약:|학과 설명:|참고/주의 사항:)", r"\n\n\1", cleaned)
+
+    segments = [segment.strip() for segment in cleaned.split("\n") if segment.strip()]
+    filtered = []
+    for seg in segments:
+        if filtered and seg == filtered[-1]:
+            continue
+        filtered.append(seg)
+    return "\n\n".join(filtered)
