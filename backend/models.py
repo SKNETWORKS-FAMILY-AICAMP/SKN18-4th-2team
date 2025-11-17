@@ -57,6 +57,6 @@ def load_ollama_model() -> ChatOllama:
 # 파인튜닝 모델 
 @lru_cache(maxsize=1)
 def load_finetune_ollama_model() -> ChatOllama:
-    model = os.getenv("OLLAMA_MODEL", "") # 이곳에 해당 모델명 입력
-    temperature = float(os.getenv("CLASSIFY_TEMPERATURE", "0.2"))
+    model = os.getenv("FINETUNE_MODEL", "") # 이곳에 해당 모델명 입력
+    temperature = float(os.getenv("FINETUNE_TEMPERATURE", "0.2"))
     return ChatOllama(model=model, temperature=temperature)

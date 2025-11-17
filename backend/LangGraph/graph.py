@@ -66,7 +66,7 @@ def create_graph_flow():
         route_rag_finetune,
         {
             "retrieve": "retrieve",
-            "generate_answer": "generate_answer",
+            "finetune": "generate_answer",
         },
     )
     graph.add_edge('retrieve', 'evaluate_chunks')
