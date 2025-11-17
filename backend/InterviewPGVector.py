@@ -44,8 +44,8 @@ class InterviewPGVector(VectorStore):
     ) -> List[Document]:
         """면접 데이터 유사도 검색 (메타데이터 필터링 지원)"""
         query_emb = self.embedding_fn.embed_query(query)
-        params: List[Any] = [query_emb, k]
-        
+        params: List[Any] = []
+
         # 기본 쿼리: meta_df와 vector 조인
         sql_query = """
             SELECT 
@@ -71,10 +71,10 @@ class InterviewPGVector(VectorStore):
         if filter:
             if "occupation" in filter:
                 where_clauses.append("m.occupation = %s")
-                params.insert(0, filter["occupation"])
+                params.append(filter["occupation"])
             if "question_intent" in filter:
                 where_clauses.append("m.question_intent = %s")
-                params.insert(0, filter["question_intent"])
+                params.append(filter["question_intent"])
         
         if where_clauses:
             sql_query += " WHERE " + " AND ".join(where_clauses)
@@ -83,6 +83,7 @@ class InterviewPGVector(VectorStore):
             ORDER BY v.embedding <-> %s::vector
             LIMIT %s
         """
+        params.extend([query_emb, k])
         
         with self.conn.cursor() as cur:
             cur.execute(sql_query, tuple(params))

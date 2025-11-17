@@ -1,0 +1,71 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat With Dito - Conversation</title>
+    <link rel="stylesheet" href="{% static 'chatbot/css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'chatbot/css/chat_v3.css' %}">
+    <link rel="stylesheet" href="{% static 'chatbot/css/profile_modal.css' %}">
+</head>
+<body>
+    <div class="chat-layout" data-api-endpoint="{% url 'chatbot:api-ask' %}">
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <p class="sidebar-heading">Navigation</p>
+                <div class="sidebar-nav">
+                    <button>Main</button>
+                    <button class="is-active">Chat With Dito</button>
+                </div>
+            </div>
+            <div class="sidebar-section conversation-section">
+                <p class="sidebar-heading">Conversations</p>
+                <ul class="conversation-list" data-conversation-list>
+                    <li class="conversation-empty">아직 대화가 없습니다.</li>
+                </ul>
+                <button class="new-chat-btn" type="button" data-add-conversation>+ 새 대화 추가</button>
+            </div>
+            <div class="sidebar-footer">
+                <div class="avatar">SK</div>
+                <div class="sidebar-user">
+                    <strong>Dreamtopia</strong>
+                    <span>dreamtopia@dito.ai</span>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-panel chat-panel">
+            <header class="chat-header">
+                <div>
+                    <p class="chat-label">Active conversation</p>
+                    <h2 class="chat-title" data-conversation-title>새 대화</h2>
+                </div>
+                <div class="chat-actions">
+                    <button type="button" class="ghost-btn" data-clear-active>대화 초기화</button>
+                    <button type="button" class="ghost-btn danger" data-delete-active>삭제</button>
+                </div>
+            </header>
+
+            <section class="chat-window">
+                <div class="message-list" data-message-list>
+                    <div class="chat-placeholder">
+                        <p>왼쪽에서 대화를 선택하거나 새로 만들어보세요.</p>
+                    </div>
+                </div>
+            </section>
+
+            <div class="composer">
+                <textarea placeholder="Write your message ..." data-message-input></textarea>
+                <button class="primary-action" type="button" data-send-message>전송</button>
+            </div>
+        </main>
+    </div>
+
+    {% include "chatbot/includes/profile_modal.html" %}
+
+    <script src="{% static 'chatbot/js/conversations.js' %}"></script>
+    <script src="{% static 'chatbot/js/profile_modal.js' %}"></script>
+    <script src="{% static 'chatbot/js/chat_v3.js' %}"></script>
+</body>
+</html>

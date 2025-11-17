@@ -17,7 +17,7 @@ class Singleton(type(VectorStore)):
 
 
 class CustomPGVector(VectorStore, metaclass=Singleton):
-    DEFAULT_TABLE = "major_vector_chunks"
+    DEFAULT_TABLE = "college.college_vector_db"
     _CONTENT_FALLBACK_KEYS: Sequence[str] = (
         "summary",
         "interest",

@@ -42,4 +42,6 @@ def generate_user_question_node(state: GraphState) -> GraphState:
         refined_question = ""
 
     state["generate_question"] = refined_question or raw_question
+    state["interview_rewrite_count"] = state.get("interview_rewrite_count", 0) + 1
     return state
+

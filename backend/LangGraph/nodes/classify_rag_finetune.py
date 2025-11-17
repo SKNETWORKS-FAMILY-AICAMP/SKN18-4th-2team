@@ -34,5 +34,10 @@ def classify_rag_finetune(state: GraphState) -> GraphState:
     return state
 
 def route_rag_finetune(state: GraphState) -> str:
-    category = state.get("category_rag_finetune", "").strip()
-    return category
+    category = (state.get("category_rag_finetune") or "").strip().lower()
+    if category == "rag":
+        return "retrieve"
+    if category == "finetune":
+        return "generate_answer"
+    # 기본값: 학과 지식 기반으로 검색
+    return "retrieve"
