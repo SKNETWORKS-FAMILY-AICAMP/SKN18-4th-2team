@@ -7,7 +7,6 @@ from .nodes.retrieve_chunks import retrieve_chunks_node
 from .nodes.eval_chunks import node_evaluate_chunks
 from .nodes.generate_questions import generate_user_question_node
 from .nodes.generate_answer import generate_answer
-from .nodes.eval_generated_answer import evaluate_question_answer
 
 # 면접 관련 노드 import
 from .nodes.interview_query_classify import interview_query_classify_node
@@ -24,7 +23,6 @@ def create_graph_flow():
     graph.add_node('retrieve', retrieve_chunks_node)
     graph.add_node('evaluate_chunks', node_evaluate_chunks)
     graph.add_node('generate_answer', generate_answer)
-    graph.add_node('evaluate_answer', evaluate_question_answer)
     
     # 면접 관련 노드 추가
     graph.add_node('interview_query_classify', interview_query_classify_node)
@@ -66,12 +64,11 @@ def create_graph_flow():
         route_rag_finetune,
         {
             "retrieve": "retrieve",
-            "finetune": "generate_answer",
+            "generate_answer": "generate_answer",
         },
     )
     graph.add_edge('retrieve', 'evaluate_chunks')
     graph.add_edge('evaluate_chunks', 'generate_answer')
-    graph.add_edge('generate_answer', 'evaluate_answer')
-    graph.add_edge('evaluate_answer', END)
+    graph.add_edge('generate_answer', END)
 
     return graph.compile()
