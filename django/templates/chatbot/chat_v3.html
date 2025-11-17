@@ -7,7 +7,6 @@
     <title>Chat With Dito - Conversation</title>
     <link rel="stylesheet" href="{% static 'chatbot/css/base.css' %}">
     <link rel="stylesheet" href="{% static 'chatbot/css/chat_v3.css' %}">
-    <link rel="stylesheet" href="{% static 'chatbot/css/profile_modal.css' %}">
 </head>
 <body>
     <div class="chat-layout" data-api-endpoint="{% url 'chatbot:api-ask' %}">
@@ -15,8 +14,8 @@
             <div class="sidebar-section">
                 <p class="sidebar-heading">Navigation</p>
                 <div class="sidebar-nav">
-                    <button>Main</button>
-                    <button class="is-active">Chat With Dito</button>
+                    <a href="{% url 'chatbot:home' %}">Main</a>
+                    <a class="is-active" href="{% url 'chatbot:chat' %}">Chat With Dito</a>
                 </div>
             </div>
             <div class="sidebar-section conversation-section">
@@ -25,13 +24,6 @@
                     <li class="conversation-empty">아직 대화가 없습니다.</li>
                 </ul>
                 <button class="new-chat-btn" type="button" data-add-conversation>+ 새 대화 추가</button>
-            </div>
-            <div class="sidebar-footer">
-                <div class="avatar">SK</div>
-                <div class="sidebar-user">
-                    <strong>Dreamtopia</strong>
-                    <span>dreamtopia@dito.ai</span>
-                </div>
             </div>
         </aside>
 
@@ -62,10 +54,7 @@
         </main>
     </div>
 
-    {% include "chatbot/includes/profile_modal.html" %}
-
     <script src="{% static 'chatbot/js/conversations.js' %}"></script>
-    <script src="{% static 'chatbot/js/profile_modal.js' %}"></script>
     <script src="{% static 'chatbot/js/chat_v3.js' %}"></script>
 </body>
 </html>

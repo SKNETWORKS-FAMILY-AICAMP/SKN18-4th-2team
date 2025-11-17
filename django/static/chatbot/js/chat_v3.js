@@ -9,7 +9,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const titleEl = document.querySelector('[data-conversation-title]');
     const deleteActiveBtn = document.querySelector('[data-delete-active]');
     const clearActiveBtn = document.querySelector('[data-clear-active]');
-    const profileModal = window.initProfileModal?.('[data-profile-modal]');
     let isRequesting = false;
     let thinkingBubble = null;
 
@@ -89,28 +88,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return stored;
         }
         return getDefaultProfile();
-    }
-
-    function requestProfile(options = {}) {
-        return new Promise((resolve) => {
-            const forceBlank = !!options.forceBlank;
-            const providedProfile = options.profile;
-            const hasProvided = providedProfile && Object.keys(providedProfile).length > 0;
-            const baseProfile = forceBlank || !hasProvided
-                ? {}
-                : (providedProfile || getDefaultProfile());
-            const fallbackTitle = options.title || (baseProfile.name ? `${baseProfile.name}님의 새 대화` : '새 대화');
-            if (!profileModal) {
-                resolve({ title: fallbackTitle, profile: baseProfile });
-                return;
-            }
-            profileModal.open({
-                initialProfile: baseProfile,
-                initialTitle: fallbackTitle,
-                onSubmit: resolve,
-                onUseExisting: () => resolve({ title: fallbackTitle, profile: getDefaultProfile() }),
-            });
-        });
     }
 
     function getCookie(name) {
@@ -203,12 +180,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     newChatButton?.addEventListener('click', () => {
-        requestProfile({ title: '새 대화', profile: {}, forceBlank: true }).then((result) => {
-            if (!result) return;
-            const conversation = ConversationStore.create(result.title, [], result.profile);
-            renderConversations();
-            setActive(conversation);
-        });
+        const profile = getDefaultProfile();
+        if (!profile.stageType) {
+            alert('먼저 사용자 정보를 입력해주세요.');
+            return;
+        }
+        const conversation = ConversationStore.create('새 대화', [], profile);
+        renderConversations();
+        setActive(conversation);
     });
 
     deleteActiveBtn?.addEventListener('click', () => {

@@ -2,26 +2,7 @@
     const STORAGE_KEY = 'chatbotConversations';
     const ACTIVE_KEY = 'chatbotActiveConversation';
 
-    const DEFAULT_CONVERSATIONS = [
-        {
-            id: 'conv-sample-1',
-            title: '면접 준비 가이드',
-            messages: [
-                { sender: 'user', text: '백엔드 면접을 준비하려면 무엇부터 해야 할까요?' },
-                { sender: 'bot', text: '현재 실력을 점검하고 자주 등장하는 주제를 정리해보는 것이 좋아요.' }
-            ],
-            profile: null,
-        },
-        {
-            id: 'conv-sample-2',
-            title: '진로 탐색 상담',
-            messages: [
-                { sender: 'user', text: '인문계 학생인데 개발 직무에 관심이 있어요.' },
-                { sender: 'bot', text: '관심 있는 프로젝트 경험을 쌓고 코딩 테스트 기초를 준비하면 좋아요.' }
-            ],
-            profile: null,
-        },
-    ];
+    const DEFAULT_CONVERSATIONS = [];
 
     function readStorage(key) {
         try {
@@ -62,7 +43,7 @@
         if (!conversations) {
             conversations = DEFAULT_CONVERSATIONS;
             writeStorage(STORAGE_KEY, conversations);
-            writeStorage(ACTIVE_KEY, conversations[0]?.id ?? null);
+            writeStorage(ACTIVE_KEY, null);
         }
         return conversations.map(normalizeConversation);
     }

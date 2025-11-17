@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const stageGroup = document.querySelector('[data-stage-select]');
     const majorGroup = document.querySelector('[data-major-select]');
     const studentOnlySections = document.querySelectorAll('[data-student-only]');
-    const profileModal = window.initProfileModal?.('[data-profile-modal]');
 
     function getDefaultProfile() {
         try {
@@ -17,26 +16,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function requestProfile(options = {}) {
-        return new Promise((resolve) => {
-            const forceBlank = !!options.forceBlank;
-            const providedProfile = options.profile;
-            const hasProvided = providedProfile && Object.keys(providedProfile).length > 0;
-            const baseProfile = forceBlank || !hasProvided
-                ? {}
-                : (providedProfile || getDefaultProfile());
-            const fallbackTitle = options.title || (baseProfile.name ? `${baseProfile.name}님의 새 대화` : '새 대화');
-            if (!profileModal) {
-                resolve({ title: fallbackTitle, profile: baseProfile });
-                return;
-            }
-            profileModal.open({
-                initialProfile: baseProfile,
-                initialTitle: fallbackTitle,
-                onSubmit: resolve,
-                onUseExisting: () => resolve({ title: fallbackTitle, profile: getDefaultProfile() }),
-            });
-        });
+    function ensureProfile() {
+        const profile = getDefaultProfile();
+        if (!profile.stageType) {
+            alert('먼저 사용자 정보를 입력해주세요.');
+            return null;
+        }
+        return profile;
     }
 
     function redirectToConversation(conversation) {
@@ -56,18 +42,10 @@ document.addEventListener('DOMContentLoaded', () => {
     renderConversations();
 
     newChatButton?.addEventListener('click', () => {
-        requestProfile({ title: '새 대화', profile: {}, forceBlank: true }).then((result) => {
-            if (!result) return;
-            const conversation = ConversationStore.create(
-                result.title || '새 대화',
-                [],
-                result.profile || null,
-            );
-            if (result.profile) {
-                sessionStorage.setItem('chatbotUserProfile', JSON.stringify(result.profile));
-            }
-            renderConversations();
-        });
+        const profile = ensureProfile();
+        if (!profile) return;
+        ConversationStore.create('새 대화', [], profile);
+        renderConversations();
     });
 
     document.querySelectorAll('[data-single-select]').forEach((group) => {
