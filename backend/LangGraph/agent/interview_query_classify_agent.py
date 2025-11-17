@@ -143,38 +143,30 @@ INTERVIEW_DOMAIN_KEYWORDS = {
 
 
 def extract_keywords_from_text(text: str) -> List[str]:
-    """텍스트에서 면접 관련 키워드를 추출
+    """텍스트에서 면접 관련 키워드를 추출 (INTERVIEW_DOMAIN_KEYWORDS만)
+    
+    occupation/question_intent 필터링에 사용할 도메인 키워드만 추출.
+    일반 단어('회사', '보는데' 등)는 필터링에 도움이 안 되므로 제외.
     
     Args:
         text: 분석할 텍스트
     
     Returns:
-        추출된 키워드 리스트
+        INTERVIEW_DOMAIN_KEYWORDS에 있는 키워드만 반환
     """
     keywords: List[str] = []
     text_lower = text.lower()
     
-    # 도메인 키워드 중 텍스트에 포함된 것들 추출
-    for keyword in INTERVIEW_DOMAIN_KEYWORDS:
-        if (keyword.lower() in text_lower or keyword in text) and keyword not in keywords:
-            keywords.append(keyword)
+    # INTERVIEW_DOMAIN_KEYWORDS만 추출 (긴 키워드 먼저)
+    sorted_keywords = sorted(INTERVIEW_DOMAIN_KEYWORDS, key=len, reverse=True)
     
-    # 추가적으로 명사형 단어 추출 (한글 2글자 이상)
-    # 간단한 패턴 매칭
-    korean_words = re.findall(r'[\uac00-\ud7a3]{2,}', text)
-    for word in korean_words:
-        # 불용어 필터링
-        if word not in ['면접', '질문', '대답', '주세요', '알려', '추천', '하면', '어떻게']:
-            if len(word) >= 2 and word not in keywords:
-                keywords.append(word)
+    for keyword in sorted_keywords:
+        keyword_lower = keyword.lower()
+        if keyword in text or keyword_lower in text_lower:
+            if keyword not in keywords:
+                keywords.append(keyword)
     
-    # 영어 단어 추출 (대문자 시작 또는 2글자 이상)
-    english_words = re.findall(r'\b[A-Z][a-zA-Z]+\b|\b[a-z]{2,}\b', text)
-    for word in english_words:
-        if word.lower() not in ['interview', 'question', 'answer'] and word not in keywords:
-            keywords.append(word)
-    
-    return list(keywords)[:10]  # 최대 10개로 제한
+    return keywords
 
 
 def classify_interview_query_type(question: str) -> dict:
