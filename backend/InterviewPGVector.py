@@ -42,65 +42,11 @@ class InterviewPGVector(VectorStore):
         k: int = 5,
         filter: Optional[Dict[str, Any]] = None,
     ) -> List[Document]:
-        """면접 데이터 유사도 검색 (메타데이터 필터링 지원)"""
+        """면접 데이터 유사도 검색 (메타데이터 필터링 지원, doc_id 중복 제거)"""
         query_emb = self.embedding_fn.embed_query(query)
         params: List[Any] = []
 
-        # 기본 쿼리: meta_df와 vector 조인
-        sql_query = """
-            SELECT 
-                m.doc_id,
-                m.occupation,
-                m.gender,
-                m.age_range,
-                m.experience,
-                m.question_intent,
-                m.answer_intent_category,
-                m.answer_emotion_category,
-                m.question_text,
-                m.answer_text,
-                m.content_combined,
-                v.chunk_id,
-                v.chunk_seq
-            FROM interview.vector v
-            INNER JOIN interview.meta_df m ON v.doc_id = m.doc_id
-        """
-        
-        # 필터 조건 추가
-        where_clauses = []
-        if filter:
-            if "occupation" in filter:
-                where_clauses.append("m.occupation = %s")
-                params.append(filter["occupation"])
-            if "question_intent" in filter:
-                where_clauses.append("m.question_intent = %s")
-                params.append(filter["question_intent"])
-        
-        if where_clauses:
-            sql_query += " WHERE " + " AND ".join(where_clauses)
-        
-        sql_query += """
-            ORDER BY v.embedding <-> %s::vector
-            LIMIT %s
-        """
-        params.extend([query_emb, k])
-        
-        with self.conn.cursor() as cur:
-            cur.execute(sql_query, tuple(params))
-            rows = cur.fetchall()
-        
-        return self._hydrate_documents(rows)
-    
-    def similarity_search_with_score(
-        self,
-        query: str,
-        k: int = 5,
-        filter: Optional[Dict[str, Any]] = None, # 여기 원래 코드에서 바뀌어있음.
-    ) -> List[Tuple[Document, float]]:
-        """면접 데이터 유사도 검색 (점수 포함, 필터링 지원)"""
-        query_emb = self.embedding_fn.embed_query(query)
-        params: List[Any] = []
-        
+        # 1단계: 충분히 많은 청크 가져오기 (k*3 개)
         sql_query = """
             SELECT 
                 m.doc_id,
@@ -139,14 +85,100 @@ class InterviewPGVector(VectorStore):
             LIMIT %s
         """
         params.insert(0, query_emb)
-        params.append(k)
+        params.append(k * 3)  # 중복 제거를 고려하여 3배 가져오기
         
         with self.conn.cursor() as cur:
             cur.execute(sql_query, tuple(params))
             rows = cur.fetchall()
         
-        documents = []
+        # 2단계: Python에서 doc_id 중복 제거 (doc_id별 가장 유사한 것만 유지)
+        seen_doc_ids = set()
+        unique_rows = []
         for row in rows:
+            doc_id = row[0]  # 첫 번째 컨럼이 doc_id
+            if doc_id not in seen_doc_ids:
+                seen_doc_ids.add(doc_id)
+                unique_rows.append(row)
+                if len(unique_rows) >= k:
+                    break
+        
+        # Document 변환
+        documents = []
+        for row in unique_rows:
+            *doc_fields, distance = row
+            doc = self._hydrate_row(tuple(doc_fields))
+            documents.append(doc)
+        return documents
+    
+    def similarity_search_with_score(
+        self,
+        query: str,
+        k: int = 5,
+        filter: Optional[Dict[str, Any]] = None,
+    ) -> List[Tuple[Document, float]]:
+        """면접 데이터 유사도 검색 (점수 포함, 필터링 지원, doc_id 중복 제거)"""
+        query_emb = self.embedding_fn.embed_query(query)
+        params: List[Any] = []
+        
+        # 1단계: 충분히 많은 청크 가져오기 (k*3 개)
+        sql_query = """
+            SELECT 
+                m.doc_id,
+                m.occupation,
+                m.gender,
+                m.age_range,
+                m.experience,
+                m.question_intent,
+                m.answer_intent_category,
+                m.answer_emotion_category,
+                m.question_text,
+                m.answer_text,
+                m.content_combined,
+                v.chunk_id,
+                v.chunk_seq,
+                (v.embedding <-> %s::vector) AS distance
+            FROM interview.vector v
+            INNER JOIN interview.meta_df m ON v.doc_id = m.doc_id
+        """
+        
+        # 필터 조건 추가
+        where_clauses = []
+        if filter:
+            if "occupation" in filter:
+                where_clauses.append("m.occupation = %s")
+                params.append(filter["occupation"])
+            if "question_intent" in filter:
+                where_clauses.append("m.question_intent = %s")
+                params.append(filter["question_intent"])
+        
+        if where_clauses:
+            sql_query += " WHERE " + " AND ".join(where_clauses)
+        
+        sql_query += """
+            ORDER BY distance
+            LIMIT %s
+        """
+        params.insert(0, query_emb)
+        params.append(k * 3)  # 중복 제거를 고려하여 3배 가져오기
+        
+        with self.conn.cursor() as cur:
+            cur.execute(sql_query, tuple(params))
+            rows = cur.fetchall()
+        
+        # 2단계: Python에서 doc_id 중복 제거 (doc_id별 가장 유사한 것만 유지)
+        seen_doc_ids = set()
+        unique_rows = []
+        for row in rows:
+            doc_id = row[0]  # 첫 번째 컨럼이 doc_id
+            if doc_id not in seen_doc_ids:
+                seen_doc_ids.add(doc_id)
+                unique_rows.append(row)
+                if len(unique_rows) >= k:
+                    break
+        
+        # Document 변환
+        documents = []
+        for row in unique_rows:
             *doc_fields, distance = row
             doc = self._hydrate_row(tuple(doc_fields))
             documents.append((doc, float(distance)))
