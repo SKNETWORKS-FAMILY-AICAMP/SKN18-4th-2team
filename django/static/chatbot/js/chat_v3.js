@@ -22,6 +22,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function renderTextWithBreaks(element, text) {
+        element.textContent = '';
+        if (!text) {
+            return;
+        }
+        const fragments = text.split('\n');
+        fragments.forEach((fragment, index) => {
+            element.appendChild(document.createTextNode(fragment));
+            if (index !== fragments.length - 1) {
+                element.appendChild(document.createElement('br'));
+            }
+        });
+    }
+
     function renderMessages(conversation) {
         if (!messageList) return;
         messageList.innerHTML = '';
@@ -37,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
         conversation.messages.forEach((msg) => {
             const bubble = document.createElement('div');
             bubble.className = `message ${msg.sender === 'user' ? 'user' : 'bot'}`;
-            bubble.textContent = msg.text;
+            renderTextWithBreaks(bubble, msg.text);
             messageList.appendChild(bubble);
         });
 
