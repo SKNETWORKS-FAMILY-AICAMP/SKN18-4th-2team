@@ -19,7 +19,7 @@
 ## 프로젝트 요약 :
 **핵심 아이디어**
 >  - LangGraph로 **면접 vs 대학 진로**를 라우팅 → 각 도메인별 최적 전략 적용
->  - pgvector + HuggingFace 임베딩으로 **근거가 남는 검색** 수행
+>  - pgvector +  `text-embedding-3-large` 임베딩으로 **근거가 남는 검색** 수행
 >  - 질문 성격에 따라 **SQL 필터 + 벡터 검색 + LLM 평가**를 조합
 >  - **모델 스택:** Ollama `gemma3:1b`(분류/재작성), OpenAI `gpt-4o(-mini)`(평가/생성), `text-embedding-3-large` 임베딩
 
