@@ -349,7 +349,7 @@ GPT 모델이 자체적으로 답변 품질을 평가하는 4가지 지표:
 #### BERTScore 비교
 
 **파인튜닝 전 (Base Model)**
-![BERTScore Base](images/llm_finetuning/bert_score_bf.png)
+<img src="images/llm_finetuning/bert_score_bf.png" alt="BERTScore Base" width="500">
 
 | 지표 | 점수 |
 |------|------|
@@ -358,7 +358,7 @@ GPT 모델이 자체적으로 답변 품질을 평가하는 4가지 지표:
 | F1 | 0.6638 |
 
 **파인튜닝 후 (Fine-tuned Model)**
-![BERTScore Fine-tuned](images/llm_finetuning/bert_score_ft.png)
+<img src="images/llm_finetuning/bert_score_ft.png" alt="BERTScore finetuning" width="500">
 
 | 지표 | 점수 | 개선율 |
 |------|------|--------|
@@ -369,7 +369,7 @@ GPT 모델이 자체적으로 답변 품질을 평가하는 4가지 지표:
 #### GPT Judge Scores 비교
 
 **파인튜닝 전 (Base Model)**
-![GPT Judge Base](images/llm_finetuning/gpt_score_bf.png)
+<img src="images/llm_finetuning/gpt_score_bf.png" alt="GPTScore Base" width="500">
 
 | 지표 | 점수 |
 |------|------|
@@ -379,7 +379,7 @@ GPT 모델이 자체적으로 답변 품질을 평가하는 4가지 지표:
 | Actionability | 2.1091 |
 
 **파인튜닝 후 (Fine-tuned Model)**
-![GPT Judge Fine-tuned](images/llm_finetuning/gpt_score_ft.png)
+<img src="images/llm_finetuning/gpt_score_ft.png" alt="GPTScore finetuning" width="500">
 
 | 지표 | 점수 | 개선율 |
 |------|------|--------|
@@ -778,15 +778,6 @@ docker compose up -d
 ### 📊 성능 지표
 🎯 **분류 정확도:** 95% 이상 (면접/대학/기타 도메인 분류)  
 ✅ **사용자 만족도:** 답변 품질 및 관련성 높음
-
----
-
-## 🧯 장애 & 해결 사례
-| 문제 | 원인 | 해결 |
-| --- | --- | --- |
-| 도메인 혼동으로 면접 질문이 대학 RAG로 흘러감 | 분류 프롬프트가 사용자 프로필을 고려하지 않음 | `classify` 노드 메시지에 `state['user']` 반영 및 stage 기반 가중치 추가 |
-| 면접 데이터 검색 시 무관 청크 노이즈 | 다국어 질문/직군 필터 부재 | 키워드 맵핑으로 occupation/question_intent 추출 → SQL 필터 적용 |
-| chunk 관련도 편차 | 벡터 점수만 사용 | OpenAI 평가 모델이 JSON 스코어를 반환하도록 강제하고, 상위 n개만 사용 |
 
 
 
