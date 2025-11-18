@@ -112,7 +112,7 @@
 
 ## 📚 데이터 & 라이선스
 | 구분 | 출처 | 비고 | 링크 |
-| --- | --- | --- | --- |
+| --------- | --- | --- | --- |
 | 대학/전공 정보 | CareerNet/교육부 공개자료에서 정제된 `major_details_*.csv` | 학과 특성, 진로, 적성, 관련 직업 | https://www.data.go.kr/data/15014632/fileData.do?recommendDataYn=Y, https://www.career.go.kr/cloud/m/major/uList
 | 면접 데이터 | 자체 크롤링 및 인터뷰 스크립트 정제본 `interview_final_db.csv` | 직군(occupation), 질문 의도(question_intent) 라벨 포함 | https://www.aihub.or.kr/aihubdata/dat
 | 벡터 DB | PostgreSQL + pgvector | 학과/면접 데이터 임베딩 저장 및 유사도 검색 | - |
@@ -349,7 +349,7 @@ GPT 모델이 자체적으로 답변 품질을 평가하는 4가지 지표:
 #### BERTScore 비교
 
 **파인튜닝 전 (Base Model)**
-<img src="images/llm_finetuning/bert_score_bf.png" alt="BERTScore Base" width="500">
+<img src="images/llm_finetuning/bert_score_bf.png" alt="BERTScore Base" width="500" style="display:block; margin-left:0;">
 
 | 지표 | 점수 |
 |------|------|
@@ -358,7 +358,7 @@ GPT 모델이 자체적으로 답변 품질을 평가하는 4가지 지표:
 | F1 | 0.6638 |
 
 **파인튜닝 후 (Fine-tuned Model)**
-<img src="images/llm_finetuning/bert_score_ft.png" alt="BERTScore finetuning" width="500">
+<img src="images/llm_finetuning/bert_score_ft.png" alt="BERTScore finetuning" width="500" style="display:block; margin-left:0;">
 
 | 지표 | 점수 | 개선율 |
 |------|------|--------|
@@ -369,7 +369,7 @@ GPT 모델이 자체적으로 답변 품질을 평가하는 4가지 지표:
 #### GPT Judge Scores 비교
 
 **파인튜닝 전 (Base Model)**
-<img src="images/llm_finetuning/gpt_score_bf.png" alt="GPTScore Base" width="500">
+<img src="images/llm_finetuning/gpt_score_bf.png" alt="GPTScore Base" width="500" style="display:block; margin-left:0;">
 
 | 지표 | 점수 |
 |------|------|
@@ -379,7 +379,7 @@ GPT 모델이 자체적으로 답변 품질을 평가하는 4가지 지표:
 | Actionability | 2.1091 |
 
 **파인튜닝 후 (Fine-tuned Model)**
-<img src="images/llm_finetuning/gpt_score_ft.png" alt="GPTScore finetuning" width="500">
+<img src="images/llm_finetuning/gpt_score_ft.png" alt="GPTScore finetuning" width="500" style="display:block; margin-left:0;">
 
 | 지표 | 점수 | 개선율 |
 |------|------|--------|
