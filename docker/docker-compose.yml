@@ -5,15 +5,10 @@ services:
     image: ollama/ollama:latest
     container_name: ollama
     restart: unless-stopped
-    entrypoint: ["/bin/sh", "/entrypoint-ollama.sh"]
-    environment:
-      OLLAMA_PULL_MODELS: "gemma3:1b hf.co/rlawnsrb731/gemma3-final-skn4th:F16"
-      OLLAMA_LISTEN_HOST: "0.0.0.0"
     ports:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
-      - ./entrypoint-ollama.sh:/entrypoint-ollama.sh:ro
     networks:
       - skn_net
 
