@@ -1,10 +1,28 @@
 version: "3.9"
 
 services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/entrypoint-ollama.sh"]
+    environment:
+      OLLAMA_PULL_MODELS: "gemma3:1b hf.co/rlawnsrb731/gemma3-final-skn4th:F16"
+      OLLAMA_LISTEN_HOST: "0.0.0.0"
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./entrypoint-ollama.sh:/entrypoint-ollama.sh:ro
+    networks:
+      - skn_net
+
   db:
     image: pgvector/pgvector:pg16
     container_name: SKN_4th
     restart: unless-stopped
+    networks:
+      - skn_net
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_DB: ${POSTGRES_DB}
@@ -32,6 +50,7 @@ services:
       - ../.env
     environment:
       POSTGRES_HOST: db
+      OLLAMA_BASE_URL: http://ollama:11434
     working_dir: /app/django
     volumes:
       - ../django:/app/django
@@ -39,8 +58,17 @@ services:
     ports:
       - "8000:8000"
     depends_on:
+      ollama:
+        condition: service_started
       db:
         condition: service_healthy
+    networks:
+      - skn_net
 
 volumes:
   pgdata:
+  ollama_data:
+
+networks:
+  skn_net:
+    name: skn_network
