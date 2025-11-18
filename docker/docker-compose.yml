@@ -22,5 +22,25 @@ services:
       timeout: 3s
       retries: 20
 
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+    container_name: skn_web
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      POSTGRES_HOST: db
+    working_dir: /app/django
+    volumes:
+      - ../django:/app/django
+      - ../backend:/app/backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   pgdata:
